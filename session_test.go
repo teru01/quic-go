@@ -1195,6 +1195,7 @@ var _ = Describe("Session", func() {
 			defer GinkgoRecover()
 			<-finishHandshake
 			cryptoSetup.EXPECT().RunHandshake()
+			cryptoSetup.EXPECT().DropHandshakeKeys()
 			close(sess.handshakeCompleteChan)
 			sess.run()
 		}()
@@ -1246,6 +1247,7 @@ var _ = Describe("Session", func() {
 		go func() {
 			defer GinkgoRecover()
 			cryptoSetup.EXPECT().RunHandshake()
+			cryptoSetup.EXPECT().DropHandshakeKeys()
 			close(sess.handshakeCompleteChan)
 			sess.run()
 		}()
@@ -1493,6 +1495,7 @@ var _ = Describe("Session", func() {
 			go func() {
 				defer GinkgoRecover()
 				cryptoSetup.EXPECT().RunHandshake().MaxTimes(1)
+				cryptoSetup.EXPECT().DropHandshakeKeys().MaxTimes(1)
 				close(sess.handshakeCompleteChan)
 				err := sess.run()
 				nerr, ok := err.(net.Error)
