@@ -52,8 +52,6 @@ type RoundTripper struct {
 	MaxResponseHeaderBytes int64
 
 	clients map[string]roundTripCloser
-
-	Unreliable bool
 }
 
 // RoundTripOpt are options for the Transport.RoundTripOpt method.
