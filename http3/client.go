@@ -19,6 +19,10 @@ import (
 const defaultUserAgent = "quic-go HTTP/3"
 const defaultMaxResponseHeaderBytes = 10 * 1 << 20 // 10 MB
 
+type contextKey string
+
+const Unreliable contextKey = "key"
+
 var defaultQuicConfig = &quic.Config{
 	MaxIncomingStreams: -1, // don't allow the server to create bidirectional streams
 	KeepAlive:          true,
@@ -150,8 +154,20 @@ func (c *client) RoundTrip(req *http.Request) (*http.Response, error) {
 	if c.handshakeErr != nil {
 		return nil, c.handshakeErr
 	}
+	unreliable, ok := req.Context().Value(Unreliable).(bool)
+	if !ok {
+		fmt.Println("cannot convert to bool")
+		unreliable = false
+	}
+	var str quic.Stream
+	var err error
 
-	str, err := c.session.OpenStreamSync(context.Background())
+
+	if bool(unreliable) {
+		str, err = c.session.OpenUnreliableStreamSync(context.Background())
+	} else {
+		str, err = c.session.OpenStreamSync(context.Background())
+	}
 	if err != nil {
 		return nil, err
 	}
