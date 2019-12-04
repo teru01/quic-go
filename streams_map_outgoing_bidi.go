@@ -26,7 +26,7 @@ type outgoingBidiStreamsMap struct {
 	maxStream   protocol.StreamNum // the maximum stream ID we're allowed to open
 	blockedSent bool               // was a STREAMS_BLOCKED sent for the current maxStream
 
-	newStream            func(protocol.StreamNum) streamI
+	newStream            func(protocol.StreamNum) streamI // 関数フィールドでstreamの生成関数を渡す
 	queueStreamIDBlocked func(*wire.StreamsBlockedFrame)
 
 	closeErr error

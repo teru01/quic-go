@@ -32,6 +32,7 @@ type roundTripperOpts struct {
 }
 
 // client is a HTTP3 client doing requests
+// これのRoundTripperが呼ばれる
 type client struct {
 	tlsConf *tls.Config
 	config  *quic.Config

@@ -52,6 +52,8 @@ type RoundTripper struct {
 	MaxResponseHeaderBytes int64
 
 	clients map[string]roundTripCloser
+
+	Unreliable bool
 }
 
 // RoundTripOpt are options for the Transport.RoundTripOpt method.
@@ -113,6 +115,7 @@ func (r *RoundTripper) RoundTripOpt(req *http.Request, opt RoundTripOpt) (*http.
 }
 
 // RoundTrip does a round trip.
+// implements RoundTrip
 func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	return r.RoundTripOpt(req, RoundTripOpt{})
 }

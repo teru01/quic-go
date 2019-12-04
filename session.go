@@ -405,6 +405,7 @@ func (s *session) preSetup() {
 		s.logger,
 	)
 	s.earlySessionReadyChan = make(chan struct{})
+	// フロー制御器を渡す
 	s.streamsMap = newStreamsMap(
 		s,
 		s.newFlowController,

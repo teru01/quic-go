@@ -71,6 +71,7 @@ func newStreamsMap(
 		newFlowController: newFlowController,
 		sender:            sender,
 	}
+	// ストリームの生成、フロー制御オブジェクトもここで渡す
 	m.outgoingBidiStreams = newOutgoingBidiStreamsMap(
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, perspective)
