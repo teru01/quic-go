@@ -162,12 +162,10 @@ func (c *client) RoundTrip(req *http.Request) (*http.Response, error) {
 	var str quic.Stream
 	var err error
 
+	contx := context.Background()
+	context.WithValue(contx, Unreliable, unreliable)
+	str, err = c.session.OpenStreamSync(contx)
 
-	if bool(unreliable) {
-		str, err = c.session.OpenUnreliableStreamSync(context.Background())
-	} else {
-		str, err = c.session.OpenStreamSync(context.Background())
-	}
 	if err != nil {
 		return nil, err
 	}
