@@ -64,13 +64,14 @@ func (m *outgoingBidiStreamsMap) OpenStream() (streamI, error) {
 }
 
 func (m *outgoingBidiStreamsMap) OpenStreamSync(ctx context.Context) (streamI, error) {
-	type ContextKey string
-	const UnreliableContextKey ContextKey = "key"
+	const UnreliableContextKey string = "unreliable_key"
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	unreliable, ok := ctx.Value(UnreliableContextKey).(bool)
-	if !ok {
+	var unreliable bool
+	if unreliable, ok := ctx.Value(UnreliableContextKey).(bool); ok {
+		unreliable = bool(unreliable)
+	} else {
 		return nil, fmt.Errorf("unreliable key is not bool")
 	}
 

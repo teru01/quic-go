@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"flag"
@@ -46,7 +47,13 @@ func main() {
 	}
 	_ = urls
 	url := "https://localhost:6121"
-	rsp, err := hclient.Get(url)
+
+	// reqにContextで渡す
+	ctx := context.WithValue(context.Background(), "unreliable_key", true)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+
+	rsp, err := hclient.Do(req)
+
 	if err != nil {
 		panic(err)
 	}

@@ -3,13 +3,12 @@ package quic
 
 import (
 	"context"
-	"sync"
 	"fmt"
+	"sync"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/wire"
 )
-
 
 //go:generate genny -in $GOFILE -out streams_map_outgoing_bidi.go gen "item=streamI Item=BidiStream streamTypeGeneric=protocol.StreamTypeBidi"
 //go:generate genny -in $GOFILE -out streams_map_outgoing_uni.go gen "item=sendStreamI Item=UniStream streamTypeGeneric=protocol.StreamTypeUni"
@@ -63,13 +62,14 @@ func (m *outgoingItemsMap) OpenStream() (item, error) {
 }
 
 func (m *outgoingItemsMap) OpenStreamSync(ctx context.Context) (item, error) {
-	type ContextKey string
-	const UnreliableContextKey ContextKey = "key"
+	const UnreliableContextKey string = "unreliable_key"
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	unreliable, ok := ctx.Value(UnreliableContextKey).(bool)
-	if !ok {
+	var unreliable bool
+	if unreliable, ok := ctx.Value(UnreliableContextKey).(bool); ok {
+		unreliable = bool(unreliable)
+	} else {
 		return nil, fmt.Errorf("unreliable key is not bool")
 	}
 
