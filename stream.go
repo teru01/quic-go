@@ -97,6 +97,7 @@ func newStream(streamID protocol.StreamID,
 	sender streamSender,
 	flowController flowcontrol.StreamFlowController,
 	version protocol.VersionNumber,
+	unreliable bool,
 ) *stream {
 	s := &stream{sender: sender, version: version}
 	senderForSendStream := &uniStreamSender{
@@ -108,7 +109,7 @@ func newStream(streamID protocol.StreamID,
 			s.completedMutex.Unlock()
 		},
 	}
-	s.sendStream = *newSendStream(streamID, senderForSendStream, flowController, version)
+	s.sendStream = *newSendStream(streamID, senderForSendStream, flowController, version, unreliable)
 	senderForReceiveStream := &uniStreamSender{
 		streamSender: sender,
 		onStreamCompletedImpl: func() {

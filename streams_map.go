@@ -73,24 +73,24 @@ func newStreamsMap(
 	}
 	// ストリームの生成、フロー制御オブジェクトもここで渡す
 	m.outgoingBidiStreams = newOutgoingBidiStreamsMap(
-		func(num protocol.StreamNum) streamI {
+		func(num protocol.StreamNum, unreliable bool) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, perspective)
-			return newStream(id, m.sender, m.newFlowController(id), version)
+			return newStream(id, m.sender, m.newFlowController(id), version, unreliable)
 		},
 		sender.queueControlFrame,
 	)
 	m.incomingBidiStreams = newIncomingBidiStreamsMap(
 		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, perspective.Opposite())
-			return newStream(id, m.sender, m.newFlowController(id), version)
+			return newStream(id, m.sender, m.newFlowController(id), version, false)
 		},
 		maxIncomingBidiStreams,
 		sender.queueControlFrame,
 	)
 	m.outgoingUniStreams = newOutgoingUniStreamsMap(
-		func(num protocol.StreamNum) sendStreamI {
+		func(num protocol.StreamNum, unreliable bool) sendStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, perspective)
-			return newSendStream(id, m.sender, m.newFlowController(id), version)
+			return newSendStream(id, m.sender, m.newFlowController(id), version, unreliable)
 		},
 		sender.queueControlFrame,
 	)
