@@ -22,7 +22,7 @@ const (
 	TransportParameterError ErrorCode = 0x8
 	VersionNegotiationError ErrorCode = 0x9
 	ProtocolViolation       ErrorCode = 0xa
-	InvalidMigration        ErrorCode = 0xc
+	CryptoBufferExceeded    ErrorCode = 0xd
 )
 
 func (e ErrorCode) isCryptoError() bool {
@@ -69,8 +69,8 @@ func (e ErrorCode) String() string {
 		return "VERSION_NEGOTIATION_ERROR"
 	case ProtocolViolation:
 		return "PROTOCOL_VIOLATION"
-	case InvalidMigration:
-		return "INVALID_MIGRATION"
+	case CryptoBufferExceeded:
+		return "CRYPTO_BUFFER_EXCEEDED"
 	default:
 		if e.isCryptoError() {
 			return "CRYPTO_ERROR"
