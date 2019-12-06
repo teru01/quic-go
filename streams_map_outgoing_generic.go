@@ -4,10 +4,12 @@ package quic
 import (
 	"context"
 	"sync"
+	"fmt"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/wire"
 )
+
 
 //go:generate genny -in $GOFILE -out streams_map_outgoing_bidi.go gen "item=streamI Item=BidiStream streamTypeGeneric=protocol.StreamTypeBidi"
 //go:generate genny -in $GOFILE -out streams_map_outgoing_uni.go gen "item=sendStreamI Item=UniStream streamTypeGeneric=protocol.StreamTypeUni"
@@ -24,14 +26,14 @@ type outgoingItemsMap struct {
 	maxStream   protocol.StreamNum // the maximum stream ID we're allowed to open
 	blockedSent bool               // was a STREAMS_BLOCKED sent for the current maxStream
 
-	newStream            func(protocol.StreamNum) item
+	newStream            func(protocol.StreamNum, bool) item
 	queueStreamIDBlocked func(*wire.StreamsBlockedFrame)
 
 	closeErr error
 }
 
 func newOutgoingItemsMap(
-	newStream func(protocol.StreamNum) item,
+	newStream func(protocol.StreamNum, bool) item,
 	queueControlFrame func(wire.Frame),
 ) *outgoingItemsMap {
 	return &outgoingItemsMap{
@@ -61,8 +63,15 @@ func (m *outgoingItemsMap) OpenStream() (item, error) {
 }
 
 func (m *outgoingItemsMap) OpenStreamSync(ctx context.Context) (item, error) {
+	type ContextKey string
+	const UnreliableContextKey ContextKey = "key"
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
+
+	unreliable, ok := ctx.Value(UnreliableContextKey).(bool)
+	if !ok {
+		return nil, fmt.Errorf("unreliable key is not bool")
+	}
 
 	if m.closeErr != nil {
 		return nil, m.closeErr
@@ -73,7 +82,11 @@ func (m *outgoingItemsMap) OpenStreamSync(ctx context.Context) (item, error) {
 	}
 
 	if len(m.openQueue) == 0 && m.nextStream <= m.maxStream {
-		return m.openStream(), nil
+		if unreliable {
+			return m.openUnreliableStream(), nil
+		} else {
+			return m.openStream(), nil
+		}
 	}
 
 	waitChan := make(chan struct{}, 1)
@@ -103,15 +116,27 @@ func (m *outgoingItemsMap) OpenStreamSync(ctx context.Context) (item, error) {
 			// no stream available. Continue waiting
 			continue
 		}
-		str := m.openStream()
+		var str item
+		if unreliable {
+			str = m.openUnreliableStream()
+		} else {
+			str = m.openStream()
+		}
 		delete(m.openQueue, queuePos)
 		m.unblockOpenSync()
 		return str, nil
 	}
 }
 
+func (m *outgoingItemsMap) openUnreliableStream() item {
+	s := m.newStream(m.nextStream, true)
+	m.streams[m.nextStream] = s
+	m.nextStream++
+	return s
+}
+
 func (m *outgoingItemsMap) openStream() item {
-	s := m.newStream(m.nextStream)
+	s := m.newStream(m.nextStream, false)
 	m.streams[m.nextStream] = s
 	m.nextStream++
 	return s
