@@ -4,20 +4,18 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"flag"
 	"io"
 	"net/http"
 
 	"github.com/lucas-clemente/quic-go/http3"
-	"github.com/lucas-clemente/quic-go/internal/testdata"
 	"github.com/lucas-clemente/quic-go/internal/utils"
 )
 
 func main() {
 	verbose := flag.Bool("v", false, "verbose")
 	quiet := flag.Bool("q", false, "don't print the data")
-	insecure := flag.Bool("insecure", false, "skip certificate verification")
+	unreliable := flag.Bool("u", false, "unreliable")
 	flag.Parse()
 	urls := flag.Args()
 
@@ -30,15 +28,9 @@ func main() {
 	}
 	logger.SetLogTimeFormat("")
 
-	pool, err := x509.SystemCertPool()
-	if err != nil {
-		panic(err)
-	}
-	testdata.AddRootCA(pool)
 	roundTripper := &http3.RoundTripper{
 		TLSClientConfig: &tls.Config{
-			RootCAs:            pool,
-			InsecureSkipVerify: *insecure,
+			InsecureSkipVerify: true,
 		},
 	}
 	defer roundTripper.Close()
@@ -46,10 +38,15 @@ func main() {
 		Transport: roundTripper,
 	}
 	_ = urls
-	url := "https://localhost:6121"
+	var url string
+	if len(urls) == 1 {
+		url = urls[0]
+	} else {
+		url = "https://localhost:6121"
+	}
 
 	// reqにContextで渡す
-	ctx := context.WithValue(context.Background(), "unreliable_key", true)
+	ctx := context.WithValue(context.Background(), "unreliable_key", unreliable)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 
 	rsp, err := hclient.Do(req)
