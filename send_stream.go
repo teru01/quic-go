@@ -54,6 +54,8 @@ type sendStream struct {
 	flowController flowcontrol.StreamFlowController
 
 	version protocol.VersionNumber
+
+	unreliable bool
 }
 
 var _ SendStream = &sendStream{}
@@ -64,6 +66,7 @@ func newSendStream(
 	sender streamSender,
 	flowController flowcontrol.StreamFlowController,
 	version protocol.VersionNumber,
+	unreliable bool,
 ) *sendStream {
 	s := &sendStream{
 		streamID:       streamID,
@@ -71,6 +74,7 @@ func newSendStream(
 		flowController: flowController,
 		writeChan:      make(chan struct{}, 1),
 		version:        version,
+		unreliable:     unreliable,
 	}
 	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
 	return s
@@ -161,6 +165,10 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 
 	if f == nil {
 		return nil, hasMoreData
+	}
+	if s.unreliable {
+		// 再送を行わない
+		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: s.frameAcked}, hasMoreData
 	}
 	return &ackhandler.Frame{Frame: f, OnLost: s.queueRetransmission, OnAcked: s.frameAcked}, hasMoreData
 }
