@@ -46,7 +46,7 @@ func main() {
 	}
 
 	// reqにContextで渡す
-	ctx := context.WithValue(context.Background(), "unreliable_key", unreliable)
+	ctx := context.WithValue(context.Background(), "unreliable_key", *unreliable)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 
 	rsp, err := hclient.Do(req)
