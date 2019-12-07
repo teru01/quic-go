@@ -68,12 +68,10 @@ func (m *outgoingBidiStreamsMap) OpenStreamSync(ctx context.Context) (streamI, e
 	defer m.mutex.Unlock()
 
 	var unreliable bool
-	if unreliable, ok := ctx.Value(UnreliableContextKey).(bool); ok {
-		unreliable = bool(unreliable)
-	} else {
+	var ok bool
+	if unreliable, ok = ctx.Value(UnreliableContextKey).(bool); !ok {
 		return nil, fmt.Errorf("unreliable key is not bool")
 	}
-
 	if m.closeErr != nil {
 		return nil, m.closeErr
 	}
@@ -85,9 +83,8 @@ func (m *outgoingBidiStreamsMap) OpenStreamSync(ctx context.Context) (streamI, e
 	if len(m.openQueue) == 0 && m.nextStream <= m.maxStream {
 		if unreliable {
 			return m.openUnreliableStream(), nil
-		} else {
-			return m.openStream(), nil
 		}
+		return m.openStream(), nil
 	}
 
 	waitChan := make(chan struct{}, 1)
