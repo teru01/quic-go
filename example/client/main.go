@@ -46,15 +46,12 @@ func main() {
 	}
 
 	// reqにContextで渡す
-	ctx := context.WithValue(context.Background(), "unreliable_key", *unreliable)
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-
-	rsp, err := hclient.Do(req)
+	rsp, err := get(hclient, url, *unreliable)
 
 	if err != nil {
 		panic(err)
 	}
-	logger.Infof("Got response for %s: %#v", url, rsp)
+	// logger.Infof("Got response for %s: %#v", url, rsp)
 
 	body := &bytes.Buffer{}
 	_, err = io.Copy(body, rsp.Body)
@@ -62,9 +59,20 @@ func main() {
 		panic(err)
 	}
 	if *quiet {
-		logger.Infof("Request Body: %d bytes", body.Len())
+		// logger.Infof("Request Body: %d bytes", body.Len())
 	} else {
-		logger.Infof("Request Body:")
+		// logger.Infof("Request Body:")
 		logger.Infof("%s", body.Bytes())
 	}
+}
+
+func get(hclient *http.Client, url string, unreliable bool) (*http.Response, error){
+
+	
+	ctx := context.WithValue(context.Background(), "unreliable_key", unreliable)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return hclient.Do(req)
 }

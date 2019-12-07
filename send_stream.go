@@ -307,7 +307,7 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 	sf := f.(*wire.StreamFrame)
 	sf.DataLenPresent = true
 	s.mutex.Lock()
-	fmt.Println("add STREAM FRAME to retransmission queue")
+	fmt.Printf("add STREAM FRAME to retransmission queue id: %v", s.StreamID())
 	s.retransmissionQueue = append(s.retransmissionQueue, sf)
 	s.numOutstandingFrames--
 	if s.numOutstandingFrames < 0 {
