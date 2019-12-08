@@ -155,7 +155,7 @@ func (c *client) RoundTrip(req *http.Request) (*http.Response, error) {
 	unreliable, ok := req.Context().Value(UnreliableContextKey).(bool)
 
 	if !ok {
-		fmt.Println("cannot convert to bool")
+		// fmt.Println("cannot convert to bool")
 		unreliable = false
 	}
 	var str quic.Stream
