@@ -80,9 +80,9 @@ func newStreamsMap(
 		sender.queueControlFrame,
 	)
 	m.incomingBidiStreams = newIncomingBidiStreamsMap(
-		func(num protocol.StreamNum) streamI {
+		func(num protocol.StreamNum, unreliable bool) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, perspective.Opposite())
-			return newStream(id, m.sender, m.newFlowController(id), version, false)
+			return newStream(id, m.sender, m.newFlowController(id), version, unreliable)
 		},
 		maxIncomingBidiStreams,
 		sender.queueControlFrame,
@@ -95,7 +95,7 @@ func newStreamsMap(
 		sender.queueControlFrame,
 	)
 	m.incomingUniStreams = newIncomingUniStreamsMap(
-		func(num protocol.StreamNum) receiveStreamI {
+		func(num protocol.StreamNum, unreliable bool) receiveStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, perspective.Opposite())
 			return newReceiveStream(id, m.sender, m.newFlowController(id), version)
 		},
