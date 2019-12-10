@@ -45,6 +45,8 @@ func (p *frameParser) parseFrame(r *bytes.Reader, typeByte byte, encLevel protoc
 	var err error
 	if typeByte&0xf8 == 0x8 {
 		frame, err = parseStreamFrame(r, p.version)
+	} else if typeByte&0x20 == 0x20 {
+		frame, err = parseUnreliableStreamFrame(r, p.version)
 	} else {
 		switch typeByte {
 		case 0x1:
