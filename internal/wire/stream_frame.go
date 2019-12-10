@@ -12,7 +12,6 @@ import (
 
 // A StreamFrame of QUIC
 type StreamFrame struct {
-	StreamFrameInterface
 	StreamID       protocol.StreamID
 	Offset         protocol.ByteCount
 	Data           []byte
@@ -195,18 +194,18 @@ func (f *StreamFrame) PutBack() {
 }
 
 
-func GetOffset(f *StreamFrame) protocol.ByteCount {
+func (f *StreamFrame) GetOffset() protocol.ByteCount {
 	return f.Offset
 }
 
-func GetFinBit(f *StreamFrame)  bool {
+func (f *StreamFrame)GetFinBit()  bool {
 	return f.FinBit
 }
 
-func GetData(f *StreamFrame) []byte {
+func (f *StreamFrame)GetData() []byte {
 	return f.Data
 }
 
-func GetDataLen(f *StreamFrame) protocol.ByteCount {
+func (f *StreamFrame) GetDataLen() protocol.ByteCount {
 	return f.DataLen()
 }

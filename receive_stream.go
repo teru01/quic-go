@@ -15,7 +15,7 @@ import (
 type receiveStreamI interface {
 	ReceiveStream
 
-	handleStreamFrame(*wire.StreamFrame) error
+	handleStreamFrame(wire.StreamFrameInterface) error
 	handleResetStreamFrame(*wire.ResetStreamFrame) error
 	closeForShutdown(error)
 	getWindowUpdate() protocol.ByteCount
@@ -221,7 +221,7 @@ func (s *receiveStream) cancelReadImpl(errorCode protocol.ApplicationErrorCode) 
 	return s.finalOffset != protocol.MaxByteCount
 }
 
-func (s *receiveStream) handleStreamFrame(frame *wire.StreamFrame) error {
+func (s *receiveStream) handleStreamFrame(frame wire.StreamFrameInterface) error {
 	s.mutex.Lock()
 	completed, err := s.handleStreamFrameImpl(frame)
 	s.mutex.Unlock()
@@ -233,20 +233,20 @@ func (s *receiveStream) handleStreamFrame(frame *wire.StreamFrame) error {
 	return err
 }
 
-func (s *receiveStream) handleStreamFrameImpl(frame *wire.StreamFrame) (bool /* completed */, error) {
-	maxOffset := frame.Offset + frame.DataLen()
-	if err := s.flowController.UpdateHighestReceived(maxOffset, frame.FinBit); err != nil {
+func (s *receiveStream) handleStreamFrameImpl(frame wire.StreamFrameInterface) (bool /* completed */, error) {
+	maxOffset := frame.GetOffset() + frame.GetDataLen()
+	if err := s.flowController.UpdateHighestReceived(maxOffset, frame.GetFinBit()); err != nil {
 		return false, err
 	}
 	var newlyRcvdFinalOffset bool
-	if frame.FinBit {
+	if frame.GetFinBit() {
 		newlyRcvdFinalOffset = s.finalOffset == protocol.MaxByteCount
 		s.finalOffset = maxOffset
 	}
 	if s.canceledRead {
 		return newlyRcvdFinalOffset, nil
 	}
-	if err := s.frameQueue.Push(frame.Data, frame.Offset, frame.PutBack); err != nil {
+	if err := s.frameQueue.Push(frame.GetData(), frame.GetOffset(), frame.PutBack); err != nil {
 		return false, err
 	}
 	s.signalRead()
@@ -288,9 +288,9 @@ func (s *receiveStream) handleResetStreamFrameImpl(frame *wire.ResetStreamFrame)
 	return newlyRcvdFinalOffset, nil
 }
 
-func (s *receiveStream) CloseRemote(offset protocol.ByteCount) {
-	s.handleStreamFrame(&wire.StreamFrame{FinBit: true, Offset: offset})
-}
+// func (s *receiveStream) CloseRemote(offset protocol.ByteCount) {
+// 	s.handleStreamFrame(&wire.StreamFrame{FinBit: true, Offset: offset})
+// }
 
 func (s *receiveStream) SetReadDeadline(t time.Time) error {
 	s.mutex.Lock()
