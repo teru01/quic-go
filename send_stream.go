@@ -175,7 +175,9 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 	return &ackhandler.Frame{Frame: f, OnLost: s.queueRetransmission, OnAcked: s.frameAcked}, hasMoreData
 }
 
-func (s *sendStream) popNewOrRetransmittedStreamFrame(maxBytes protocol.ByteCount) (*wire.StreamFrame, bool /* has more data to send */) {
+func (s *sendStream) popNewOrRetransmittedStreamFrame(maxBytes protocol.ByteCount) (wire.StreamFrameInterface, bool /* has more data to send */) {
+	var frameInterface wire.StreamFrameInterface
+
 	if len(s.retransmissionQueue) > 0 {
 		f, hasMoreRetransmissions := s.maybeGetRetransmission(maxBytes)
 		if f != nil || hasMoreRetransmissions {
@@ -184,10 +186,10 @@ func (s *sendStream) popNewOrRetransmittedStreamFrame(maxBytes protocol.ByteCoun
 			}
 			// We always claim that we have more data to send.
 			// This might be incorrect, in which case there'll be a spurious call to popStreamFrame in the future.
-			return f, true
+			frameInterface = f
+			return frameInterface, true
 		}
 	}
-
 	f := wire.GetStreamFrame()
 	f.FinBit = false
 	f.StreamID = s.streamID
@@ -201,7 +203,12 @@ func (s *sendStream) popNewOrRetransmittedStreamFrame(maxBytes protocol.ByteCoun
 		f.PutBack()
 		return nil, hasMoreData
 	}
-	return f, hasMoreData
+	if s.unreliable {
+		frameInterface = &wire.UnreliableStreamFrame{f}
+	} else {
+		frameInterface = f
+	}
+	return frameInterface, hasMoreData
 }
 
 func (s *sendStream) popNewStreamFrame(f *wire.StreamFrame, maxBytes protocol.ByteCount) bool {

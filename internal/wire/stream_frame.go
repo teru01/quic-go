@@ -12,6 +12,7 @@ import (
 
 // A StreamFrame of QUIC
 type StreamFrame struct {
+	StreamFrameInterface
 	StreamID       protocol.StreamID
 	Offset         protocol.ByteCount
 	Data           []byte
