@@ -122,7 +122,12 @@ func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.
 	if lastFrame != nil {
 		lastFrameLen := lastFrame.Length(f.version)
 		// account for the smaller size of the last STREAM frame
-		lastFrame.Frame.(*wire.StreamFrame).DataLenPresent = false
+		switch v := lastFrame.Frame.(type) {
+		case *wire.StreamFrame:
+				v.DataLenPresent = false
+		case *wire.UnreliableStreamFrame:
+				v.DataLenPresent = false
+		}
 		length += lastFrame.Length(f.version) - lastFrameLen
 	}
 	return frames, length
