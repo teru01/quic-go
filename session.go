@@ -893,8 +893,8 @@ func (s *session) handleCryptoFrame(frame *wire.CryptoFrame, encLevel protocol.E
 	return nil
 }
 
-func (s *session) handleStreamFrame(frame *wire.StreamFrame) error {
-	str, err := s.streamsMap.GetOrOpenReceiveStream(frame.StreamID)
+func (s *session) handleStreamFrame(frame wire.StreamFrameInterface) error {
+	str, err := s.streamsMap.GetOrOpenReceiveStream(frame.GetStreamId())
 	if err != nil {
 		return err
 	}

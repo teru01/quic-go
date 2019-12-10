@@ -44,7 +44,7 @@ type streamI interface {
 	Stream
 	closeForShutdown(error)
 	// for receiving
-	handleStreamFrame(*wire.StreamFrame) error
+	handleStreamFrame(wire.StreamFrameInterface) error
 	handleResetStreamFrame(*wire.ResetStreamFrame) error
 	getWindowUpdate() protocol.ByteCount
 	// for sending
