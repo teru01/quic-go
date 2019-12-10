@@ -22,6 +22,10 @@ type StreamFrame struct {
 	fromPool bool
 }
 
+func (f *StreamFrame) GetStreamId() protocol.StreamID {
+	return f.StreamID
+}
+
 func parseStreamFrame(r *bytes.Reader, _ protocol.VersionNumber) (*StreamFrame, error) {
 	typeByte, err := r.ReadByte()
 	if err != nil {
@@ -188,4 +192,21 @@ func (f *StreamFrame) MaybeSplitOffFrame(maxSize protocol.ByteCount, version pro
 
 func (f *StreamFrame) PutBack() {
 	putStreamFrame(f)
+}
+
+
+func GetOffset(f *StreamFrame) protocol.ByteCount {
+	return f.Offset
+}
+
+func GetFinBit(f *StreamFrame)  bool {
+	return f.FinBit
+}
+
+func GetData(f *StreamFrame) []byte {
+	return f.Data
+}
+
+func GetDataLen(f *StreamFrame) protocol.ByteCount {
+	return f.DataLen()
 }
