@@ -75,6 +75,8 @@ func (f *framerI) AddActiveStream(id protocol.StreamID) {
 	f.mutex.Unlock()
 }
 
+// 受信側: response frame中にあるunreliableを読んでストリームを作成 GetOrOpenSendStreamから
+// 送信側: 
 func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.ByteCount) ([]ackhandler.Frame, protocol.ByteCount) {
 	var length protocol.ByteCount
 	var lastFrame *ackhandler.Frame
