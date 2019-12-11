@@ -176,22 +176,22 @@ func (m *streamsMap) getOrOpenReceiveStream(id protocol.StreamID) (receiveStream
 		if id.InitiatedBy() == m.perspective {
 			str, err = m.outgoingBidiStreams.GetStream(num)
 		} else {
-			str, err = m.incomingBidiStreams.GetOrOpenStream(num)
+			str, err = m.incomingBidiStreams.GetOrOpenStream(num, false)
 		}
 		return str, convertStreamError(err, protocol.StreamTypeBidi, id.InitiatedBy())
 	}
 	panic("")
 }
 
-func (m *streamsMap) GetOrOpenSendStream(id protocol.StreamID) (sendStreamI, error) {
-	str, err := m.getOrOpenSendStream(id)
+func (m *streamsMap) GetOrOpenSendStream(id protocol.StreamID, unreliable bool) (sendStreamI, error) {
+	str, err := m.getOrOpenSendStream(id, unreliable)
 	if err != nil {
 		return nil, qerr.Error(qerr.StreamStateError, err.Error())
 	}
 	return str, nil
 }
 
-func (m *streamsMap) getOrOpenSendStream(id protocol.StreamID) (sendStreamI, error) {
+func (m *streamsMap) getOrOpenSendStream(id protocol.StreamID, unreliable bool) (sendStreamI, error) {
 	num := id.StreamNum()
 	switch id.Type() {
 	case protocol.StreamTypeUni:
@@ -207,7 +207,7 @@ func (m *streamsMap) getOrOpenSendStream(id protocol.StreamID) (sendStreamI, err
 		if id.InitiatedBy() == m.perspective {
 			str, err = m.outgoingBidiStreams.GetStream(num)
 		} else {
-			str, err = m.incomingBidiStreams.GetOrOpenStream(num)
+			str, err = m.incomingBidiStreams.GetOrOpenStream(num, unreliable)
 		}
 		return str, convertStreamError(err, protocol.StreamTypeBidi, id.InitiatedBy())
 	}
