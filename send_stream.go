@@ -168,7 +168,8 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 	if f == nil {
 		return nil, hasMoreData
 	}
-	if s.unreliable {
+	stFrame, ok := f.(wire.StreamFrameInterface)
+	if s.unreliable  && (ok && !stFrame.GetFinBit()){ // finビットの立っていないStreamFrame
 		// 再送を行わない
 		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: s.frameAcked}, hasMoreData
 	}
