@@ -29,11 +29,11 @@ type unpacker interface {
 
 type streamGetter interface {
 	GetOrOpenReceiveStream(protocol.StreamID) (receiveStreamI, error)
-	GetOrOpenSendStream(protocol.StreamID) (sendStreamI, error)
+	GetOrOpenSendStream(protocol.StreamID, bool) (sendStreamI, error)
 }
 
 type streamManager interface {
-	GetOrOpenSendStream(protocol.StreamID) (sendStreamI, error)
+	GetOrOpenSendStream(protocol.StreamID, bool) (sendStreamI, error)
 	GetOrOpenReceiveStream(protocol.StreamID) (receiveStreamI, error)
 	OpenStream() (Stream, error)
 	OpenUniStream() (SendStream, error)
@@ -183,6 +183,8 @@ type session struct {
 
 	logID  string
 	logger utils.Logger
+
+	unreliableMap map[protocol.StreamID]bool
 }
 
 var _ Session = &session{}
@@ -213,6 +215,7 @@ var newSession = func(
 		handshakeCompleteChan: make(chan struct{}),
 		logger:                logger,
 		version:               v,
+		unreliableMap: make(map[protocol.StreamID]bool),
 	}
 	if origDestConnID != nil {
 		s.logID = origDestConnID.String()
@@ -911,7 +914,7 @@ func (s *session) handleMaxDataFrame(frame *wire.MaxDataFrame) {
 }
 
 func (s *session) handleMaxStreamDataFrame(frame *wire.MaxStreamDataFrame) error {
-	str, err := s.streamsMap.GetOrOpenSendStream(frame.StreamID)
+	str, err := s.streamsMap.GetOrOpenSendStream(frame.StreamID, false) // すでに開かれたストリームなのでunreliableの指定は影響しないはず
 	if err != nil {
 		return err
 	}
@@ -940,7 +943,7 @@ func (s *session) handleResetStreamFrame(frame *wire.ResetStreamFrame) error {
 }
 
 func (s *session) handleStopSendingFrame(frame *wire.StopSendingFrame) error {
-	str, err := s.streamsMap.GetOrOpenSendStream(frame.StreamID)
+	str, err := s.streamsMap.GetOrOpenSendStream(frame.StreamID, false) // すでに開かれたストリームなのでunreliableの指定は影響しないはず
 	if err != nil {
 		return err
 	}
@@ -1432,7 +1435,8 @@ func (s *session) onHasConnectionWindowUpdate() {
 }
 
 func (s *session) onHasStreamData(id protocol.StreamID) {
-	s.framer.AddActiveStream(id)
+	unreliable := s.unreliableMap[id]
+	s.framer.AddActiveStream(id, unreliable)
 	s.scheduleSending()
 }
 
