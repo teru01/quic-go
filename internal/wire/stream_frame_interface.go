@@ -10,5 +10,7 @@ type StreamFrameInterface interface {
 	GetFinBit() bool
 	GetData() []byte
 	PutBack()
-	// Write(b *bytes.Buffer, version protocol.VersionNumber) error
+	MaybeSplitOffFrame(protocol.ByteCount, protocol.VersionNumber) (*StreamFrame, bool)
+	DataLen() protocol.ByteCount
+	MaxDataLen(protocol.ByteCount, protocol.VersionNumber) protocol.ByteCount
 }

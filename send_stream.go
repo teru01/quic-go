@@ -29,7 +29,7 @@ type sendStream struct {
 	mutex sync.Mutex
 
 	numOutstandingFrames int64
-	retransmissionQueue  []*wire.StreamFrame
+	retransmissionQueue  []wire.StreamFrameInterface
 
 	ctx       context.Context
 	ctxCancel context.CancelFunc
@@ -169,9 +169,12 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 		return nil, hasMoreData
 	}
 	stFrame, ok := f.(wire.StreamFrameInterface)
-	if s.unreliable  && (ok && !stFrame.GetFinBit()){ // finビットの立っていないStreamFrame
+	if s.unreliable && (ok && !stFrame.GetFinBit()) { // finビットの立っていないStreamFrame
 		// 再送を行わない
 		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: s.frameAcked}, hasMoreData
+	}
+	if s.unreliable && ok && stFrame.GetFinBit() {
+		fmt.Println("unreliable fin")
 	}
 	return &ackhandler.Frame{Frame: f, OnLost: s.queueRetransmission, OnAcked: s.frameAcked}, hasMoreData
 }
@@ -245,7 +248,7 @@ func (s *sendStream) popNewStreamFrame(f *wire.StreamFrame, maxBytes protocol.By
 	return s.dataForWriting != nil
 }
 
-func (s *sendStream) maybeGetRetransmission(maxBytes protocol.ByteCount) (*wire.StreamFrame, bool /* has more retransmissions */) {
+func (s *sendStream) maybeGetRetransmission(maxBytes protocol.ByteCount) (wire.StreamFrameInterface, bool /* has more retransmissions */) {
 	f := s.retransmissionQueue[0]
 	newFrame, needsSplit := f.MaybeSplitOffFrame(maxBytes, s.version)
 	if needsSplit {
@@ -314,18 +317,37 @@ func (s *sendStream) isNewlyCompleted() bool {
 }
 
 func (s *sendStream) queueRetransmission(f wire.Frame) {
-	sf := f.(*wire.StreamFrame)
-	sf.DataLenPresent = true
-	s.mutex.Lock()
-	// fmt.Printf("add STREAM FRAME to retransmission queue id: %v\n", s.StreamID())
-	s.retransmissionQueue = append(s.retransmissionQueue, sf)
-	s.numOutstandingFrames--
-	if s.numOutstandingFrames < 0 {
-		panic("numOutStandingFrames negative")
-	}
-	s.mutex.Unlock()
+	// stFrame, ok := f.(wire.StreamFrameInterface)
+	// if s.unreliable &&
+	// fmt.Println("unreliable retransmission queueing")
 
-	s.sender.onHasStreamData(s.streamID)
+	switch sf := f.(type) {
+	case *wire.StreamFrame:
+		sf.DataLenPresent = true
+		s.mutex.Lock()
+		// fmt.Printf("add STREAM FRAME to retransmission queue id: %v\n", s.StreamID())
+		s.retransmissionQueue = append(s.retransmissionQueue, sf)
+		s.numOutstandingFrames--
+		if s.numOutstandingFrames < 0 {
+			panic("numOutStandingFrames negative")
+		}
+		s.mutex.Unlock()
+
+		s.sender.onHasStreamData(s.streamID)
+	case *wire.UnreliableStreamFrame:
+		sf.DataLenPresent = true
+		s.mutex.Lock()
+		// fmt.Printf("add STREAM FRAME to retransmission queue id: %v\n", s.StreamID())
+		s.retransmissionQueue = append(s.retransmissionQueue, sf)
+		s.numOutstandingFrames--
+		if s.numOutstandingFrames < 0 {
+			panic("numOutStandingFrames negative")
+		}
+		s.mutex.Unlock()
+
+		s.sender.onHasStreamData(s.streamID)
+	}
+
 }
 
 func (s *sendStream) Close() error {
