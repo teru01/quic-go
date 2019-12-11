@@ -13,8 +13,13 @@ type framer interface {
 	QueueControlFrame(wire.Frame)
 	AppendControlFrames([]ackhandler.Frame, protocol.ByteCount) ([]ackhandler.Frame, protocol.ByteCount)
 
-	AddActiveStream(protocol.StreamID)
+	AddActiveStream(protocol.StreamID, bool)
 	AppendStreamFrames([]ackhandler.Frame, protocol.ByteCount) ([]ackhandler.Frame, protocol.ByteCount)
+}
+
+type ExtendedStream struct {
+	id protocol.StreamID
+	unreliable bool
 }
 
 type framerI struct {
@@ -24,7 +29,7 @@ type framerI struct {
 	version      protocol.VersionNumber
 
 	activeStreams map[protocol.StreamID]struct{}
-	streamQueue   []protocol.StreamID
+	streamQueue   []ExtendedStream
 
 	controlFrameMutex sync.Mutex
 	controlFrames     []wire.Frame
@@ -66,17 +71,17 @@ func (f *framerI) AppendControlFrames(frames []ackhandler.Frame, maxLen protocol
 	return frames, length
 }
 
-func (f *framerI) AddActiveStream(id protocol.StreamID) {
+func (f *framerI) AddActiveStream(id protocol.StreamID, unreliable bool) {
 	f.mutex.Lock()
 	if _, ok := f.activeStreams[id]; !ok {
-		f.streamQueue = append(f.streamQueue, id)
+		f.streamQueue = append(f.streamQueue, ExtendedStream{id: id, unreliable: unreliable})
 		f.activeStreams[id] = struct{}{}
 	}
 	f.mutex.Unlock()
 }
 
 // 受信側: response frame中にあるunreliableを読んでストリームを作成 GetOrOpenSendStreamから
-// 送信側: 
+// 送信側: streamはUnreliableで作成されているので、popFrameでunreliableにする
 func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.ByteCount) ([]ackhandler.Frame, protocol.ByteCount) {
 	var length protocol.ByteCount
 	var lastFrame *ackhandler.Frame
@@ -87,11 +92,12 @@ func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.
 		if protocol.MinStreamFrameSize+length > maxLen {
 			break
 		}
-		id := f.streamQueue[0]
+		id := f.streamQueue[0].id
+		unreliable := f.streamQueue[0].unreliable
 		f.streamQueue = f.streamQueue[1:]
 		// This should never return an error. Better check it anyway.
 		// The stream will only be in the streamQueue, if it enqueued itself there.
-		str, err := f.streamGetter.GetOrOpenSendStream(id)
+		str, err := f.streamGetter.GetOrOpenSendStream(id, unreliable)
 		// The stream can be nil if it completed after it said it had data.
 		if str == nil || err != nil {
 			delete(f.activeStreams, id)
@@ -104,7 +110,7 @@ func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.
 		remainingLen += utils.VarIntLen(uint64(remainingLen))
 		frame, hasMoreData := str.popStreamFrame(remainingLen)
 		if hasMoreData { // put the stream back in the queue (at the end)
-			f.streamQueue = append(f.streamQueue, id)
+			f.streamQueue = append(f.streamQueue, ExtendedStream{id: id, unreliable: unreliable})
 		} else { // no more data to send. Stream is not active any more
 			delete(f.activeStreams, id)
 		}
