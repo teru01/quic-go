@@ -193,19 +193,20 @@ func (f *StreamFrame) PutBack() {
 	putStreamFrame(f)
 }
 
-
 func (f *StreamFrame) GetOffset() protocol.ByteCount {
 	return f.Offset
 }
 
-func (f *StreamFrame)GetFinBit()  bool {
+func (f *StreamFrame) GetFinBit() bool {
 	return f.FinBit
 }
 
-func (f *StreamFrame)GetData() []byte {
+func (f *StreamFrame) GetData() []byte {
 	return f.Data
 }
 
 func (f *StreamFrame) GetDataLen() protocol.ByteCount {
 	return f.DataLen()
 }
+
+var _ StreamFrameInterface = &StreamFrame{}

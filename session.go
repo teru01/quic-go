@@ -322,6 +322,7 @@ var newClientSession = func(
 		logger:                logger,
 		initialVersion:        initialVersion,
 		version:               v,
+		unreliableMap: make(map[protocol.StreamID]bool),
 	}
 	s.connIDManager = newConnIDManager(
 		destConnID,
@@ -829,6 +830,8 @@ func (s *session) handleFrame(f wire.Frame, pn protocol.PacketNumber, encLevel p
 	case *wire.CryptoFrame:
 		err = s.handleCryptoFrame(frame, encLevel)
 	case *wire.StreamFrame:
+		err = s.handleStreamFrame(frame)
+	case *wire.UnreliableStreamFrame:
 		err = s.handleStreamFrame(frame)
 	case *wire.AckFrame:
 		err = s.handleAckFrame(frame, pn, encLevel)
@@ -1422,6 +1425,10 @@ func (s *session) tryDecryptingQueuedPackets() {
 func (s *session) queueControlFrame(f wire.Frame) {
 	s.framer.QueueControlFrame(f)
 	s.scheduleSending()
+}
+
+func (s *session) setUnreliableMap(id protocol.StreamID, unreliable bool) {
+	s.unreliableMap[id] = unreliable
 }
 
 func (s *session) onHasStreamWindowUpdate(id protocol.StreamID) {
