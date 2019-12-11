@@ -53,7 +53,7 @@ func (q *windowUpdateQueue) QueueAll() {
 	}
 	// queue all stream-level window updates
 	for id := range q.queue {
-		str, err := q.streamGetter.GetOrOpenReceiveStream(id)
+		str, err := q.streamGetter.GetOrOpenReceiveStream(id, false) // TODO: 多分ストリーム作成後なので関係ない
 		if err != nil || str == nil { // the stream can be nil if it was completed before dequeing the window update
 			continue
 		}

@@ -96,7 +96,7 @@ func setupHandler(www string, trace bool) http.Handler {
 		mux.Handle("/", http.FileServer(http.Dir(www)))
 	} else {
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			fmt.Printf("%#v\n", r)
+			// fmt.Printf("%#v\n", r)
 			const maxSize = 1 << 30 // 1 GB
 			num, err := strconv.ParseInt(strings.ReplaceAll(r.RequestURI, "/", ""), 10, 64)
 			if err != nil || num <= 0 || num > maxSize {

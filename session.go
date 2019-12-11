@@ -28,13 +28,13 @@ type unpacker interface {
 }
 
 type streamGetter interface {
-	GetOrOpenReceiveStream(protocol.StreamID) (receiveStreamI, error)
+	GetOrOpenReceiveStream(protocol.StreamID, bool) (receiveStreamI, error)
 	GetOrOpenSendStream(protocol.StreamID, bool) (sendStreamI, error)
 }
 
 type streamManager interface {
 	GetOrOpenSendStream(protocol.StreamID, bool) (sendStreamI, error)
-	GetOrOpenReceiveStream(protocol.StreamID) (receiveStreamI, error)
+	GetOrOpenReceiveStream(protocol.StreamID, bool) (receiveStreamI, error)
 	OpenStream() (Stream, error)
 	OpenUniStream() (SendStream, error)
 	OpenStreamSync(context.Context) (Stream, error)
@@ -900,7 +900,14 @@ func (s *session) handleCryptoFrame(frame *wire.CryptoFrame, encLevel protocol.E
 }
 
 func (s *session) handleStreamFrame(frame wire.StreamFrameInterface) error {
-	str, err := s.streamsMap.GetOrOpenReceiveStream(frame.GetStreamId())
+	var str receiveStreamI
+	var err error
+	switch frame.(type) {
+	case *wire.StreamFrame:
+		str, err = s.streamsMap.GetOrOpenReceiveStream(frame.GetStreamId(), false)
+	case *wire.UnreliableStreamFrame:
+		str, err = s.streamsMap.GetOrOpenReceiveStream(frame.GetStreamId(), true)
+	}
 	if err != nil {
 		return err
 	}
@@ -934,7 +941,7 @@ func (s *session) handleMaxStreamsFrame(frame *wire.MaxStreamsFrame) error {
 }
 
 func (s *session) handleResetStreamFrame(frame *wire.ResetStreamFrame) error {
-	str, err := s.streamsMap.GetOrOpenReceiveStream(frame.StreamID)
+	str, err := s.streamsMap.GetOrOpenReceiveStream(frame.StreamID, false) // TODO: 考慮
 	if err != nil {
 		return err
 	}

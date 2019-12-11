@@ -61,8 +61,6 @@ func main() {
 }
 
 func get(hclient *http.Client, url string, unreliable bool) (*http.Response, error){
-
-	
 	ctx := context.WithValue(context.Background(), "unreliable_key", unreliable)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {

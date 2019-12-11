@@ -152,15 +152,15 @@ func (m *streamsMap) DeleteStream(id protocol.StreamID) error {
 	panic("")
 }
 
-func (m *streamsMap) GetOrOpenReceiveStream(id protocol.StreamID) (receiveStreamI, error) {
-	str, err := m.getOrOpenReceiveStream(id)
+func (m *streamsMap) GetOrOpenReceiveStream(id protocol.StreamID, unreliable bool) (receiveStreamI, error) {
+	str, err := m.getOrOpenReceiveStream(id, unreliable)
 	if err != nil {
 		return nil, qerr.Error(qerr.StreamStateError, err.Error())
 	}
 	return str, nil
 }
 
-func (m *streamsMap) getOrOpenReceiveStream(id protocol.StreamID) (receiveStreamI, error) {
+func (m *streamsMap) getOrOpenReceiveStream(id protocol.StreamID, unreliable bool) (receiveStreamI, error) {
 	num := id.StreamNum()
 	switch id.Type() {
 	case protocol.StreamTypeUni:
@@ -176,7 +176,7 @@ func (m *streamsMap) getOrOpenReceiveStream(id protocol.StreamID) (receiveStream
 		if id.InitiatedBy() == m.perspective {
 			str, err = m.outgoingBidiStreams.GetStream(num)
 		} else {
-			str, err = m.incomingBidiStreams.GetOrOpenStream(num, false)
+			str, err = m.incomingBidiStreams.GetOrOpenStream(num, unreliable)
 		}
 		return str, convertStreamError(err, protocol.StreamTypeBidi, id.InitiatedBy())
 	}
