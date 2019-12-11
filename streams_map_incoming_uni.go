@@ -88,7 +88,7 @@ func (m *incomingUniStreamsMap) AcceptStream(ctx context.Context) (receiveStream
 	return str, nil
 }
 
-func (m *incomingUniStreamsMap) GetOrOpenStream(num protocol.StreamNum) (receiveStreamI, error) {
+func (m *incomingUniStreamsMap) GetOrOpenStream(num protocol.StreamNum, unreliable bool) (receiveStreamI, error) {
 	m.mutex.RLock()
 	if num > m.maxStream {
 		m.mutex.RUnlock()
@@ -116,7 +116,7 @@ func (m *incomingUniStreamsMap) GetOrOpenStream(num protocol.StreamNum) (receive
 	// * maxStream can only increase, so if the id was valid before, it definitely is valid now
 	// * highestStream is only modified by this function
 	for newNum := m.nextStreamToOpen; newNum <= num; newNum++ {
-		m.streams[newNum] = m.newStream(newNum, false)
+		m.streams[newNum] = m.newStream(newNum, unreliable)
 		select {
 		case m.newStreamChan <- struct{}{}:
 		default:
