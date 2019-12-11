@@ -17,6 +17,7 @@ type streamSender interface {
 	onHasStreamData(protocol.StreamID)
 	// must be called without holding the mutex that is acquired by closeForShutdown
 	onStreamCompleted(protocol.StreamID)
+	setUnreliableMap(protocol.StreamID, bool)
 }
 
 // Each of the both stream halves gets its own uniStreamSender.
@@ -24,6 +25,10 @@ type streamSender interface {
 type uniStreamSender struct {
 	streamSender
 	onStreamCompletedImpl func()
+}
+
+func (s *uniStreamSender) setUnreliableMap(id protocol.StreamID, unreliable bool) {
+	s.streamSender.setUnreliableMap(id, unreliable)
 }
 
 func (s *uniStreamSender) queueControlFrame(f wire.Frame) {
