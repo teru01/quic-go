@@ -161,7 +161,7 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 	s.mutex.Lock()
 	f, hasMoreData := s.popNewOrRetransmittedStreamFrame(maxBytes)
 	if f != nil {
-		s.numOutstandingFrames++
+		s.numOutstandingFrames++ //ACKされてないフレーム数？
 	}
 	s.mutex.Unlock()
 
@@ -308,7 +308,12 @@ func (s *sendStream) frameAcked(f wire.Frame) {
 }
 
 func (s *sendStream) isNewlyCompleted() bool {
-	completed := (s.finSent || s.canceledWrite) && s.numOutstandingFrames == 0 && len(s.retransmissionQueue) == 0
+	var completed bool
+	if s.unreliable {
+		completed = (s.finSent || s.canceledWrite) && len(s.retransmissionQueue) == 0
+	} else {
+		completed = (s.finSent || s.canceledWrite) && s.numOutstandingFrames == 0 && len(s.retransmissionQueue) == 0
+	}
 	if completed && !s.completed {
 		s.completed = true
 		return true

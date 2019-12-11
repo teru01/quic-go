@@ -11,7 +11,7 @@
             "mode": "auto",
             "program": "${fileDirname}",
             "env": {},
-            "args": []
+            "args": ["-u", "https://dash.localdomain:6666/hoge.html"]
         }
     ]
 }
