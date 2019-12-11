@@ -168,7 +168,7 @@ func (m *streamsMap) getOrOpenReceiveStream(id protocol.StreamID) (receiveStream
 			// an outgoing unidirectional stream is a send stream, not a receive stream
 			return nil, fmt.Errorf("peer attempted to open receive stream %d", id)
 		}
-		str, err := m.incomingUniStreams.GetOrOpenStream(num)
+		str, err := m.incomingUniStreams.GetOrOpenStream(num, false)
 		return str, convertStreamError(err, protocol.StreamTypeUni, m.perspective)
 	case protocol.StreamTypeBidi:
 		var str receiveStreamI
