@@ -14,7 +14,6 @@ import (
 
 func main() {
 	verbose := flag.Bool("v", false, "verbose")
-	quiet := flag.Bool("q", false, "don't print the data")
 	unreliable := flag.Bool("u", false, "unreliable")
 	flag.Parse()
 	urls := flag.Args()
@@ -58,12 +57,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if *quiet {
-		// logger.Infof("Request Body: %d bytes", body.Len())
-	} else {
-		// logger.Infof("Request Body:")
-		logger.Infof("%s", body.Bytes())
-	}
+	logger.Infof("%s", body.Bytes())
 }
 
 func get(hclient *http.Client, url string, unreliable bool) (*http.Response, error){
