@@ -473,7 +473,6 @@ func (s *session) run() error {
 	}
 
 	var closeErr closeError
-
 runLoop:
 	for {
 		// Close immediately if requested
@@ -1436,6 +1435,10 @@ func (s *session) queueControlFrame(f wire.Frame) {
 
 func (s *session) setUnreliableMap(id protocol.StreamID, unreliable bool) {
 	s.unreliableMap[id] = unreliable
+}
+
+func (s *session) isUnreliableStream(id protocol.StreamID) bool {
+	return s.unreliableMap[id]
 }
 
 func (s *session) onHasStreamWindowUpdate(id protocol.StreamID) {

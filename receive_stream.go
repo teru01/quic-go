@@ -175,10 +175,13 @@ func (s *receiveStream) readImpl(p []byte) (bool /*stream completed */, int, err
 		if !s.resetRemotely {
 			s.flowController.AddBytesRead(protocol.ByteCount(m))
 		}
-
-		if s.readPosInFrame >= len(s.currentFrame) && s.currentFrameIsLast {
-			s.finRead = true
-			return true, bytesRead, io.EOF
+		if !s.currentFrameIsLast {
+			continue
+		}
+		if s.sender.isUnreliableStream(s.StreamID()) ||
+			!s.sender.isUnreliableStream(s.StreamID()) && s.readPosInFrame >= len(s.currentFrame){
+				s.finRead = true
+				return true, bytesRead, io.EOF
 		}
 	}
 	return false, bytesRead, nil
