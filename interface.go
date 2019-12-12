@@ -102,6 +102,8 @@ type Stream interface {
 	// with the connection. It is equivalent to calling both
 	// SetReadDeadline and SetWriteDeadline.
 	SetDeadline(t time.Time) error
+
+	UnreliableWrite([]byte) (int, error)
 }
 
 // A ReceiveStream is a unidirectional Receive Stream.

@@ -49,6 +49,7 @@ type sendStream struct {
 	completed         bool // set when this stream has been reported to the streamSender as completed
 
 	dataForWriting []byte
+	isCurrentDataUnreliable chan bool
 
 	writeChan chan struct{}
 	deadline  time.Time
@@ -74,6 +75,7 @@ func newSendStream(
 		streamID:       streamID,
 		sender:         sender,
 		flowController: flowController,
+		isCurrentDataUnreliable: make(chan bool, 1),
 		writeChan:      make(chan struct{}, 1),
 		version:        version,
 		unreliable:     unreliable,
@@ -130,6 +132,81 @@ func (s *sendStream) Write(p []byte) (int, error) {
 			break
 		}
 
+		// reliable write
+		s.isCurrentDataUnreliable <- false
+
+		s.mutex.Unlock()
+		if !notifiedSender {
+			s.sender.onHasStreamData(s.streamID) // must be called without holding the mutex
+			notifiedSender = true
+		}
+		if deadline.IsZero() {
+			<-s.writeChan
+		} else {
+			select {
+			case <-s.writeChan:
+			case <-deadlineTimer.Chan():
+				deadlineTimer.SetRead()
+			}
+		}
+		s.mutex.Lock()
+	}
+
+	if s.closeForShutdownErr != nil {
+		return bytesWritten, s.closeForShutdownErr
+	} else if s.cancelWriteErr != nil {
+		return bytesWritten, s.cancelWriteErr
+	}
+	return bytesWritten, nil
+}
+
+func (s *sendStream) UnreliableWrite(p []byte) (int, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.finishedWriting {
+		return 0, fmt.Errorf("write on closed stream %d", s.streamID)
+	}
+	if s.canceledWrite {
+		return 0, s.cancelWriteErr
+	}
+	if s.closeForShutdownErr != nil {
+		return 0, s.closeForShutdownErr
+	}
+	if !s.deadline.IsZero() && !time.Now().Before(s.deadline) {
+		return 0, errDeadline
+	}
+	if len(p) == 0 {
+		return 0, nil
+	}
+
+	s.dataForWriting = p
+
+	var (
+		deadlineTimer  *utils.Timer
+		bytesWritten   int
+		notifiedSender bool
+	)
+	for {
+		bytesWritten = len(p) - len(s.dataForWriting)
+		deadline := s.deadline
+		if !deadline.IsZero() {
+			if !time.Now().Before(deadline) {
+				s.dataForWriting = nil
+				return bytesWritten, errDeadline
+			}
+			if deadlineTimer == nil {
+				deadlineTimer = utils.NewTimer()
+			}
+			deadlineTimer.Reset(deadline)
+		}
+		if s.dataForWriting == nil || s.canceledWrite || s.closedForShutdown {
+			break
+		}
+
+		// unreliable write
+		s.isCurrentDataUnreliable <- true
+
 		s.mutex.Unlock()
 		if !notifiedSender {
 			s.sender.onHasStreamData(s.streamID) // must be called without holding the mutex
@@ -168,8 +245,19 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 	if f == nil {
 		return nil, hasMoreData
 	}
+
+	var frameUnreliable bool
+	select {
+	case frameUnreliable = <-s.isCurrentDataUnreliable:
+	default:
+		fmt.Println("popStreamFrame チャンネルからデータ取り出せなかった")
+		frameUnreliable = false
+	}
+
 	stFrame := f.(wire.StreamFrameInterface) // 必ず成功
-	if s.unreliable && !stFrame.GetFinBit() { // finビットの立っていないStreamFrame
+
+	// finビットの立っていないStreamFrame, フレームレベルでUnreliableである必要がある
+	if s.unreliable && !stFrame.GetFinBit() && frameUnreliable {
 		// 再送を行わない
 		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: s.frameAcked}, hasMoreData
 	}
