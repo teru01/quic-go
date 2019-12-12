@@ -8,6 +8,7 @@ import (
 
 var pool sync.Pool
 
+// poolはフレーム生成に使われる。ACK済みのパケットはプールに戻して再利用される。GCの負荷を下げるため
 func init() {
 	pool.New = func() interface{} {
 		return &StreamFrame{

@@ -41,7 +41,7 @@ func (w *requestWriter) WriteRequest(str quic.Stream, req *http.Request, gzip bo
 	if err != nil {
 		return err
 	}
-	if _, err := str.Write(headers); err != nil {
+	if _, err := str.Write(headers); err != nil { // 信頼性を必ず持つ書き込み
 		return err
 	}
 	// TODO: add support for trailers
@@ -94,10 +94,10 @@ func (w *requestWriter) sendRequestBody(req io.ReadCloser, str quic.Stream) erro
 		}
 		buf := &bytes.Buffer{}
 		(&dataFrame{Length: uint64(n)}).Write(buf)
-		if _, err := str.Write(buf.Bytes()); err != nil {
+		if _, err := str.UnreliableWrite(buf.Bytes()); err != nil {
 			return err
 		}
-		if _, err := str.Write(b[:n]); err != nil {
+		if _, err := str.UnreliableWrite(b[:n]); err != nil {
 			return err
 		}
 	}
