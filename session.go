@@ -1438,7 +1438,12 @@ func (s *session) setUnreliableMap(id protocol.StreamID, unreliable bool) {
 }
 
 func (s *session) isUnreliableStream(id protocol.StreamID) bool {
-	return s.unreliableMap[id]
+	unreliable, ok := s.unreliableMap[id]
+	if !ok {
+		panic("can't find entry")
+	} else {
+		return unreliable
+	}
 }
 
 func (s *session) onHasStreamWindowUpdate(id protocol.StreamID) {
