@@ -215,7 +215,7 @@ var newSession = func(
 		handshakeCompleteChan: make(chan struct{}),
 		logger:                logger,
 		version:               v,
-		unreliableMap: make(map[protocol.StreamID]bool),
+		unreliableMap:         make(map[protocol.StreamID]bool),
 	}
 	if origDestConnID != nil {
 		s.logID = origDestConnID.String()
@@ -322,7 +322,7 @@ var newClientSession = func(
 		logger:                logger,
 		initialVersion:        initialVersion,
 		version:               v,
-		unreliableMap: make(map[protocol.StreamID]bool),
+		unreliableMap:         make(map[protocol.StreamID]bool),
 	}
 	s.connIDManager = newConnIDManager(
 		destConnID,
@@ -1434,7 +1434,10 @@ func (s *session) queueControlFrame(f wire.Frame) {
 }
 
 func (s *session) setUnreliableMap(id protocol.StreamID, unreliable bool) {
+	var m sync.Mutex
+	m.Lock()
 	s.unreliableMap[id] = unreliable
+	m.Unlock()
 }
 
 func (s *session) isUnreliableStream(id protocol.StreamID) bool {

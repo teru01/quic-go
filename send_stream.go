@@ -174,7 +174,7 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: s.frameAcked}, hasMoreData
 	}
 	if s.unreliable && stFrame.GetFinBit() {
-		fmt.Println("unreliable fin")
+		fmt.Println("send unreliable fin")
 	}
 	return &ackhandler.Frame{Frame: f, OnLost: s.queueRetransmission, OnAcked: s.frameAcked}, hasMoreData
 }
@@ -310,7 +310,7 @@ func (s *sendStream) frameAcked(f wire.Frame) {
 func (s *sendStream) isNewlyCompleted() bool {
 	var completed bool
 	if s.unreliable {
-		completed = (s.finSent || s.canceledWrite) && len(s.retransmissionQueue) == 0
+		completed = (s.finSent || s.canceledWrite) && len(s.retransmissionQueue) == 0 //ackを受け取った時にfinsentを送信した後
 		if completed {
 			fmt.Println("completed")
 		} else {
