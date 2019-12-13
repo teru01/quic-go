@@ -140,6 +140,11 @@ func (s *receiveStream) readImpl(p []byte) (bool /*stream completed */, int, err
 			}
 
 			if s.currentFrame != nil || s.currentFrameIsLast {
+				if s.currentFrame != nil {
+					fmt.Println("VIDEO: s.currentFrame")
+				} else {
+					fmt.Println("VIDEO: last")
+				}
 				break
 			}
 
@@ -161,6 +166,7 @@ func (s *receiveStream) readImpl(p []byte) (bool /*stream completed */, int, err
 			s.mutex.Lock()
 			if s.currentFrame == nil {
 				s.dequeueNextFrame()
+				fmt.Println("VIDEO: dequeued next frame")
 			}
 			fmt.Println("read loop second loop end")
 		}
@@ -194,7 +200,8 @@ func (s *receiveStream) readImpl(p []byte) (bool /*stream completed */, int, err
 		// 		s.finRead = true
 		// 		return true, bytesRead, io.EOF
 		// }
-		if s.readPosInFrame >= len(s.currentFrame){
+		fmt.Printf("VIDEO: pos %v, len %v\n", s.readPosInFrame, len(s.currentFrame))
+		if s.readPosInFrame >= len(s.currentFrame){ //currentFrameを最後までコピーした
 			fmt.Println("recv stream end")
 			s.finRead = true
 			return true, bytesRead, io.EOF
@@ -215,7 +222,11 @@ func (s *receiveStream) dequeueNextFrame() {
 		s.currentFrameDone()
 	}
 	offset, s.currentFrame, s.currentFrameDone = s.frameQueue.Pop()
-	s.currentFrameIsLast = offset+protocol.ByteCount(len(s.currentFrame)) >= s.finalOffset
+	if s.sender.isUnreliableStream(s.StreamID()) {
+		s.currentFrameIsLast = s.finalOffset != protocol.MaxByteCount
+	} else {
+		s.currentFrameIsLast = offset+protocol.ByteCount(len(s.currentFrame)) >= s.finalOffset
+	}
 	fmt.Printf("%v %v %v\n", offset, protocol.ByteCount(len(s.currentFrame)), s.finalOffset)
 	// if s.sender.isUnreliableStream(s.StreamID()) {
 	// 	//
