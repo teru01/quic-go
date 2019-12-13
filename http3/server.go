@@ -185,7 +185,6 @@ func (s *Server) handleConn(sess quic.Session) {
 				sess.CloseWithError(quic.ErrorCode(errorFrameUnexpected), "")
 			})
 			if rerr.err != nil || rerr.streamErr != 0 || rerr.connErr != 0 {
-				s.logger.Debugf("Handling request failed: %s", err)
 				if rerr.streamErr != 0 {
 					str.CancelWrite(quic.ErrorCode(rerr.streamErr))
 				}
@@ -212,6 +211,7 @@ func (s *Server) maxHeaderBytes() uint64 {
 
 func (s *Server) handleRequest(str quic.Stream, decoder *qpack.Decoder, onFrameError func()) requestError {
 	frame, err := parseNextFrame(str)
+	fmt.Println("handle reqest")
 	if err != nil {
 		return newStreamError(errorRequestIncomplete, err)
 	}
@@ -223,6 +223,7 @@ func (s *Server) handleRequest(str quic.Stream, decoder *qpack.Decoder, onFrameE
 		return newStreamError(errorFrameError, fmt.Errorf("HEADERS frame too large: %d bytes (max: %d)", hf.Length, s.maxHeaderBytes()))
 	}
 	headerBlock := make([]byte, hf.Length)
+	fmt.Println("VIDEO: hf: ", hf.Length)
 	if _, err := io.ReadFull(str, headerBlock); err != nil {
 		return newStreamError(errorRequestIncomplete, err)
 	}

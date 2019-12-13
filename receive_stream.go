@@ -90,6 +90,7 @@ func (s *receiveStream) Read(p []byte) (int, error) {
 }
 
 func (s *receiveStream) readImpl(p []byte) (bool /*stream completed */, int, error) {
+	fmt.Println("read impl start")
 	if s.finRead {
 		return false, 0, io.EOF
 	}
@@ -105,6 +106,7 @@ func (s *receiveStream) readImpl(p []byte) (bool /*stream completed */, int, err
 
 	bytesRead := 0
 	for bytesRead < len(p) {
+		fmt.Println("read loop first loop")
 		if s.currentFrame == nil || s.readPosInFrame >= len(s.currentFrame) {
 			s.dequeueNextFrame()
 		}
@@ -114,6 +116,7 @@ func (s *receiveStream) readImpl(p []byte) (bool /*stream completed */, int, err
 
 		var deadlineTimer *utils.Timer
 		for {
+			fmt.Println("read loop second loop")
 			// Stop waiting on errors
 			if s.closedForShutdown {
 				return false, bytesRead, s.closeForShutdownErr
@@ -141,19 +144,25 @@ func (s *receiveStream) readImpl(p []byte) (bool /*stream completed */, int, err
 			}
 
 			s.mutex.Unlock()
+			fmt.Println("read loop second loop before select")
 			if deadline.IsZero() {
+				fmt.Println("deadline zero")
 				<-s.readChan
 			} else {
+				fmt.Println("deadline non zero")
 				select {
 				case <-s.readChan:
 				case <-deadlineTimer.Chan():
+					fmt.Println("timer chan")
 					deadlineTimer.SetRead()
 				}
 			}
+			fmt.Println("read loop second loop after select")
 			s.mutex.Lock()
 			if s.currentFrame == nil {
 				s.dequeueNextFrame()
 			}
+			fmt.Println("read loop second loop end")
 		}
 
 		if bytesRead > len(p) {
@@ -175,14 +184,26 @@ func (s *receiveStream) readImpl(p []byte) (bool /*stream completed */, int, err
 		if !s.resetRemotely {
 			s.flowController.AddBytesRead(protocol.ByteCount(m))
 		}
+		fmt.Println("read loop last")
 		if !s.currentFrameIsLast {
 			continue
 		}
-		if s.sender.isUnreliableStream(s.StreamID()) ||
-			!s.sender.isUnreliableStream(s.StreamID()) && s.readPosInFrame >= len(s.currentFrame){
-				s.finRead = true
-				return true, bytesRead, io.EOF
+		// if s.sender.isUnreliableStream(s.StreamID()) ||
+		// 	!s.sender.isUnreliableStream(s.StreamID()) && s.readPosInFrame >= len(s.currentFrame){
+		// 		fmt.Println("recv stream end")
+		// 		s.finRead = true
+		// 		return true, bytesRead, io.EOF
+		// }
+		if s.readPosInFrame >= len(s.currentFrame){
+			fmt.Println("recv stream end")
+			s.finRead = true
+			return true, bytesRead, io.EOF
 		}
+
+		// if s.readPosInFrame >= len(s.currentFrame) && s.currentFrameIsLast {
+		// 	s.finRead = true
+		// 	return true, bytesRead, io.EOF
+		// }
 	}
 	return false, bytesRead, nil
 }
@@ -195,6 +216,13 @@ func (s *receiveStream) dequeueNextFrame() {
 	}
 	offset, s.currentFrame, s.currentFrameDone = s.frameQueue.Pop()
 	s.currentFrameIsLast = offset+protocol.ByteCount(len(s.currentFrame)) >= s.finalOffset
+	fmt.Printf("%v %v %v\n", offset, protocol.ByteCount(len(s.currentFrame)), s.finalOffset)
+	// if s.sender.isUnreliableStream(s.StreamID()) {
+	// 	//
+	// } else {
+	// 	s.currentFrameIsLast = offset+protocol.ByteCount(len(s.currentFrame)) >= s.finalOffset
+	// }
+	fmt.Println("islast: ", s.currentFrameIsLast)
 	s.readPosInFrame = 0
 }
 
@@ -244,6 +272,7 @@ func (s *receiveStream) handleStreamFrameImpl(frame wire.StreamFrameInterface) (
 	var newlyRcvdFinalOffset bool
 	if frame.GetFinBit() {
 		newlyRcvdFinalOffset = s.finalOffset == protocol.MaxByteCount
+		fmt.Println("get fin bit offset: ", maxOffset)  // これが最初に呼ばれるのが原因
 		s.finalOffset = maxOffset
 	}
 	if s.canceledRead {
@@ -282,6 +311,7 @@ func (s *receiveStream) handleResetStreamFrameImpl(frame *wire.ResetStreamFrame)
 		return false, err
 	}
 	newlyRcvdFinalOffset := s.finalOffset == protocol.MaxByteCount
+	fmt.Println("reset stream: byteoffset ", frame.ByteOffset)
 	s.finalOffset = frame.ByteOffset
 
 	// ignore duplicate RESET_STREAM frames for this stream (after checking their final offset)

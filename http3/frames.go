@@ -34,6 +34,7 @@ func parseNextFrame(b io.Reader) (frame, error) {
 	}
 	t, err := utils.ReadVarInt(br)
 	if err != nil {
+		fmt.Println("VIDEO: cannot read type")
 		return nil, err
 	}
 	l, err := utils.ReadVarInt(br)

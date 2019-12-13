@@ -19,6 +19,7 @@ const (
 // ReadVarInt reads a number in the QUIC varint format
 func ReadVarInt(b io.ByteReader) (uint64, error) {
 	firstByte, err := b.ReadByte()
+	fmt.Println()
 	if err != nil {
 		return 0, err
 	}

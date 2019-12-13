@@ -249,8 +249,9 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 	var frameUnreliable bool
 	select {
 	case frameUnreliable = <-s.isCurrentDataUnreliable:
+		fmt.Println("VIDEO: popStreamFrame チャンネルからデータ取り出し isCurrentDataUnreliable: ", frameUnreliable)
 	default:
-		fmt.Println("popStreamFrame チャンネルからデータ取り出せなかった")
+		fmt.Println("VIDEO: popStreamFrame チャンネルからデータ取り出せなかった")
 		frameUnreliable = false
 	}
 
