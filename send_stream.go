@@ -251,7 +251,7 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 		return nil, hasMoreData
 	}
 
-	fmt.Println("VIDEO: popStreamFrame チャンネルからデータ取り出し isCurrentDataUnreliable: ", s.isCurrentDataUnreliable)
+	fmt.Println("VIDEO: send_stream.go: currentDataUnreliable ", s.isCurrentDataUnreliable)
 
 	stFrame := f.(wire.StreamFrameInterface) // 必ず成功
 
@@ -261,7 +261,7 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: s.frameAcked}, hasMoreData
 	}
 	if s.unreliable && stFrame.GetFinBit() {
-		fmt.Println("send unreliable fin")
+		fmt.Println("VIDEO: send_stream.go: send fin reliably")
 	}
 	return &ackhandler.Frame{Frame: f, OnLost: s.queueRetransmission, OnAcked: s.frameAcked}, hasMoreData
 }
@@ -399,9 +399,7 @@ func (s *sendStream) isNewlyCompleted() bool {
 	if s.unreliable {
 		completed = (s.finSent || s.canceledWrite) && len(s.retransmissionQueue) == 0 //ackを受け取った時にfinsentを送信した後
 		if completed {
-			fmt.Println("completed")
-		} else {
-			fmt.Println("not completed")
+			fmt.Println("VIDEO: send_stream.go: unreliable stream received ack of fin frame")
 		}
 	} else {
 		completed = (s.finSent || s.canceledWrite) && s.numOutstandingFrames == 0 && len(s.retransmissionQueue) == 0
