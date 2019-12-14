@@ -2,22 +2,19 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"flag"
 	"io"
 	"net/http"
-	"sync"
 
 	"github.com/lucas-clemente/quic-go/http3"
-	"github.com/lucas-clemente/quic-go/internal/testdata"
 	"github.com/lucas-clemente/quic-go/internal/utils"
 )
 
 func main() {
 	verbose := flag.Bool("v", false, "verbose")
-	quiet := flag.Bool("q", false, "don't print the data")
-	insecure := flag.Bool("insecure", false, "skip certificate verification")
+	unreliable := flag.Bool("u", false, "unreliable")
 	flag.Parse()
 	urls := flag.Args()
 
@@ -30,46 +27,44 @@ func main() {
 	}
 	logger.SetLogTimeFormat("")
 
-	pool, err := x509.SystemCertPool()
-	if err != nil {
-		panic(err)
-	}
-	testdata.AddRootCA(pool)
 	roundTripper := &http3.RoundTripper{
 		TLSClientConfig: &tls.Config{
-			RootCAs:            pool,
-			InsecureSkipVerify: *insecure,
+			InsecureSkipVerify: true,
 		},
 	}
 	defer roundTripper.Close()
 	hclient := &http.Client{
 		Transport: roundTripper,
 	}
-
-	var wg sync.WaitGroup
-	wg.Add(len(urls))
-	for _, addr := range urls {
-		logger.Infof("GET %s", addr)
-		go func(addr string) {
-			rsp, err := hclient.Get(addr)
-			if err != nil {
-				panic(err)
-			}
-			logger.Infof("Got response for %s: %#v", addr, rsp)
-
-			body := &bytes.Buffer{}
-			_, err = io.Copy(body, rsp.Body)
-			if err != nil {
-				panic(err)
-			}
-			if *quiet {
-				logger.Infof("Request Body: %d bytes", body.Len())
-			} else {
-				logger.Infof("Request Body:")
-				logger.Infof("%s", body.Bytes())
-			}
-			wg.Done()
-		}(addr)
+	_ = urls
+	var url string
+	if len(urls) == 1 {
+		url = urls[0]
+	} else {
+		url = "https://localhost:6121"
 	}
-	wg.Wait()
+
+	// reqにContextで渡す
+	rsp, err := get(hclient, url, *unreliable)
+
+	if err != nil {
+		panic(err)
+	}
+	// logger.Infof("Got response for %s: %#v", url, rsp)
+
+	body := &bytes.Buffer{}
+	_, err = io.Copy(body, rsp.Body)
+	if err != nil {
+		panic(err)
+	}
+	logger.Infof("%s", body.Bytes())
+}
+
+func get(hclient *http.Client, url string, unreliable bool) (*http.Response, error){
+	ctx := context.WithValue(context.Background(), "unreliable_key", unreliable)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return hclient.Do(req)
 }
