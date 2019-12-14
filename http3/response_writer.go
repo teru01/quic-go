@@ -2,17 +2,17 @@ package http3
 
 import (
 	"bytes"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/internal/utils"
 	"github.com/marten-seemann/qpack"
 )
 
 type responseWriter struct {
-	stream io.Writer
+	stream quic.Stream
 
 	header        http.Header
 	status        int // status code passed to WriteHeader
@@ -23,7 +23,7 @@ type responseWriter struct {
 
 var _ http.ResponseWriter = &responseWriter{}
 
-func newResponseWriter(stream io.Writer, logger utils.Logger) *responseWriter {
+func newResponseWriter(stream quic.Stream, logger utils.Logger) *responseWriter {
 	return &responseWriter{
 		header: http.Header{},
 		stream: stream,
@@ -73,10 +73,10 @@ func (w *responseWriter) Write(p []byte) (int, error) {
 	df := &dataFrame{Length: uint64(len(p))}
 	buf := &bytes.Buffer{}
 	df.Write(buf)
-	if _, err := w.stream.Write(buf.Bytes()); err != nil {
+	if _, err := w.stream.UnreliableWrite(buf.Bytes()); err != nil {
 		return 0, err
 	}
-	return w.stream.Write(p)
+	return w.stream.UnreliableWrite(p)
 }
 
 func (w *responseWriter) Flush() {}
