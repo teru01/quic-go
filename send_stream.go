@@ -48,8 +48,8 @@ type sendStream struct {
 	finSent           bool // set when a STREAM_FRAME with FIN bit has been sent
 	completed         bool // set when this stream has been reported to the streamSender as completed
 
-	dataForWriting []byte
-	isCurrentDataUnreliable chan bool
+	dataForWriting          []byte
+	isCurrentDataUnreliable bool
 
 	writeChan chan struct{}
 	deadline  time.Time
@@ -72,13 +72,13 @@ func newSendStream(
 	unreliable bool,
 ) *sendStream {
 	s := &sendStream{
-		streamID:       streamID,
-		sender:         sender,
-		flowController: flowController,
-		isCurrentDataUnreliable: make(chan bool, 1),
-		writeChan:      make(chan struct{}, 1),
-		version:        version,
-		unreliable:     unreliable,
+		streamID:                streamID,
+		sender:                  sender,
+		flowController:          flowController,
+		isCurrentDataUnreliable: false,
+		writeChan:               make(chan struct{}, 1),
+		version:                 version,
+		unreliable:              unreliable,
 	}
 	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
 	return s
@@ -132,8 +132,10 @@ func (s *sendStream) Write(p []byte) (int, error) {
 			break
 		}
 
-		// reliable write
-		s.isCurrentDataUnreliable <- false
+		var tmp sync.Mutex
+		tmp.Lock()
+		s.isCurrentDataUnreliable = false
+		tmp.Unlock()
 
 		s.mutex.Unlock()
 		if !notifiedSender {
@@ -205,7 +207,10 @@ func (s *sendStream) UnreliableWrite(p []byte) (int, error) {
 		}
 
 		// unreliable write
-		s.isCurrentDataUnreliable <- true
+		var tmp sync.Mutex
+		tmp.Lock()
+		s.isCurrentDataUnreliable = true
+		tmp.Unlock()
 
 		s.mutex.Unlock()
 		if !notifiedSender {
@@ -246,19 +251,12 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 		return nil, hasMoreData
 	}
 
-	var frameUnreliable bool
-	select {
-	case frameUnreliable = <-s.isCurrentDataUnreliable:
-		fmt.Println("VIDEO: popStreamFrame チャンネルからデータ取り出し isCurrentDataUnreliable: ", frameUnreliable)
-	default:
-		fmt.Println("VIDEO: popStreamFrame チャンネルからデータ取り出せなかった")
-		frameUnreliable = false
-	}
+	fmt.Println("VIDEO: popStreamFrame チャンネルからデータ取り出し isCurrentDataUnreliable: ", s.isCurrentDataUnreliable)
 
 	stFrame := f.(wire.StreamFrameInterface) // 必ず成功
 
 	// finビットの立っていないStreamFrame, フレームレベルでUnreliableである必要がある
-	if s.unreliable && !stFrame.GetFinBit() && frameUnreliable {
+	if s.unreliable && !stFrame.GetFinBit() && s.isCurrentDataUnreliable {
 		// 再送を行わない
 		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: s.frameAcked}, hasMoreData
 	}
