@@ -222,11 +222,15 @@ func (s *receiveStream) dequeueNextFrame() {
 		s.currentFrameDone()
 	}
 	offset, s.currentFrame, s.currentFrameDone = s.frameQueue.Pop()
-	if s.sender.isUnreliableStream(s.StreamID()) {
-		s.currentFrameIsLast = s.finalOffset != protocol.MaxByteCount
-	} else {
-		s.currentFrameIsLast = offset+protocol.ByteCount(len(s.currentFrame)) >= s.finalOffset
-	}
+	// if s.sender.isUnreliableStream(s.StreamID()) {
+	// 	fmt.Println("VIDEO: unreliable stream")
+	// 	s.currentFrameIsLast = s.finalOffset != protocol.MaxByteCount
+	// } else {
+	// 	fmt.Println("VIDEO: reliable stream")
+	// 	s.currentFrameIsLast = offset+protocol.ByteCount(len(s.currentFrame)) >= s.finalOffset
+	// }
+	s.currentFrameIsLast = offset+protocol.ByteCount(len(s.currentFrame)) >= s.finalOffset
+
 	fmt.Printf("%v %v %v\n", offset, protocol.ByteCount(len(s.currentFrame)), s.finalOffset)
 	// if s.sender.isUnreliableStream(s.StreamID()) {
 	// 	//
