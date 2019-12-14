@@ -11,8 +11,17 @@
             "mode": "auto",
             "program": "/Users/mirai/works/go/src/github.com/lucas-clemente/quic-go/example/client/main.go",
             "env": {},
-            "args": ["-u", "https://dash.localdomain:6666/hoge.html"]
+            "args": ["-u"]
 				},
+				{
+					"name": "remote",
+					"type": "go",
+					"request": "launch",
+					"mode": "auto",
+					"program": "/Users/mirai/works/go/src/github.com/lucas-clemente/quic-go/example/client/main.go",
+					"env": {},
+					"args": ["-u", "https://dash.localdomain:6666/hoge.html"]
+			},
         {
 					"name": "server",
 					"type": "go",
