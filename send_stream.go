@@ -29,6 +29,7 @@ type sendStream struct {
 	mutex sync.Mutex
 
 	numOutstandingFrames int64
+	unreliableMustAckedNum int64
 	retransmissionQueue  []wire.StreamFrameInterface
 
 	ctx       context.Context
@@ -262,6 +263,7 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 	if s.unreliable && stFrame.GetFinBit() {
 		fmt.Println("VIDEO: send_stream.go: send fin reliably")
 	}
+	s.unreliableMustAckedNum++ // 必ずACKされないといけないフレーム数
 	return &ackhandler.Frame{Frame: f, OnLost: s.queueRetransmission, OnAcked: s.frameAcked}, hasMoreData
 }
 
@@ -383,6 +385,7 @@ func (s *sendStream) frameAcked(f wire.Frame) {
 
 	s.mutex.Lock()
 	s.numOutstandingFrames--
+	s.unreliableMustAckedNum--
 	if s.numOutstandingFrames < 0 {
 		panic("numOutStandingFrames negative")
 	}
@@ -397,7 +400,7 @@ func (s *sendStream) frameAcked(f wire.Frame) {
 func (s *sendStream) isNewlyCompleted() bool {
 	var completed bool
 	if s.unreliable {
-		completed = (s.finSent || s.canceledWrite) && len(s.retransmissionQueue) == 0 //ackを受け取った時にfinsentを送信した後
+		completed = (s.finSent || s.canceledWrite) && s.unreliableMustAckedNum == 0  && len(s.retransmissionQueue) == 0 //ackを受け取った時にfinsentを送信した後
 		if completed {
 			fmt.Println("VIDEO: send_stream.go: unreliable stream received ack of fin frame")
 		}
@@ -423,7 +426,8 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 		// fmt.Printf("add STREAM FRAME to retransmission queue id: %v\n", s.StreamID())
 		s.retransmissionQueue = append(s.retransmissionQueue, sf)
 		s.numOutstandingFrames--
-		if s.numOutstandingFrames < 0 {
+		s.unreliableMustAckedNum--
+		if s.numOutstandingFrames < 0 || s.unreliableMustAckedNum < 0{
 			panic("numOutStandingFrames negative")
 		}
 		s.mutex.Unlock()
@@ -438,7 +442,8 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 		// fmt.Printf("add STREAM FRAME to retransmission queue id: %v\n", s.StreamID())
 		s.retransmissionQueue = append(s.retransmissionQueue, sf)
 		s.numOutstandingFrames--
-		if s.numOutstandingFrames < 0 {
+		s.unreliableMustAckedNum--
+		if s.numOutstandingFrames < 0 || s.unreliableMustAckedNum < 0{
 			panic("numOutStandingFrames negative")
 		}
 		s.mutex.Unlock()
