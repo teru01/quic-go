@@ -82,10 +82,11 @@ func (w *responseWriter) Write(p []byte) (int, error) {
 
 		return w.stream.Write(p)
 	} else {
-		// VIDEO: Unreliable write
-		if _, err := w.stream.UnreliableWrite(buf.Bytes()); err != nil {
+		// VIDEO: データフレームヘッダはreliable write
+		if _, err := w.stream.Write(buf.Bytes()); err != nil {
 			return 0, err
 		}
+		// VIDEO: データフレームbodyはunreliable write
 		return w.stream.UnreliableWrite(p)
 	}
 }
