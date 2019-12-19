@@ -442,7 +442,6 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 		// fmt.Printf("add STREAM FRAME to retransmission queue id: %v\n", s.StreamID())
 		s.retransmissionQueue = append(s.retransmissionQueue, sf)
 		s.numOutstandingFrames--
-		s.unreliableMustAckedNum--
 		if s.numOutstandingFrames < 0 || s.unreliableMustAckedNum < 0{
 			panic("numOutStandingFrames negative")
 		}
