@@ -174,7 +174,7 @@ func (s *frameSorter) Pop() (protocol.ByteCount, []byte, func()) {
 	return offset, entry.Data, entry.DoneCb
 }
 
-// VIDEO: TODO: 次がnullでも取り出す。
+// VIDEO: 次がnullでも取り出す。
 func (s *frameSorter) ForcePop() (protocol.ByteCount, []byte, func(), bool /* true if padding fragment */) {
 	var lossByte protocol.ByteCount
 	offset := s.readPos

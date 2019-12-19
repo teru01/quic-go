@@ -73,7 +73,7 @@ func (w *responseWriter) Write(p []byte) (int, error) {
 	df := &dataFrame{Length: uint64(len(p))}
 	buf := &bytes.Buffer{}
 	df.Write(buf)
-	// TODO: ヘッダを解釈して選択的に送る
+	// VIDEO: ヘッダを解釈して選択的に送る
 	if w.Header().Get("Transport-Response-Reliability") == "" {
 		// VIDEO: Reliable write
 		if _, err := w.stream.Write(buf.Bytes()); err != nil {

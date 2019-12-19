@@ -57,6 +57,7 @@ func (r *Body) myReadImpl(b []byte, resp *http.Response) (*quic.UnreliableReadRe
 				continue
 			case *dataFrame:
 				r.bytesRemainingInFrame = f.Length
+				fmt.Println("VIDEO: readImpl HTTP dataframe len in frameheader: ", f.Length)
 				break parseLoop
 			default:
 				r.onFrameError()
@@ -78,7 +79,7 @@ func (r *Body) myReadImpl(b []byte, resp *http.Response) (*quic.UnreliableReadRe
 		r.bytesRemainingInFrame -= uint64(n)
 		return &quic.UnreliableReadResult{N: n, LossRange: nil}, err
 	} else {
-		// VIDEO: unreliable read
+		// VIDEO: unreliable read　この時はHTTPデータフレームのペイロードしか読まない: finbitが届いてるなら飛ばし読みできる
 		var readResult quic.UnreliableReadResult
 		if r.bytesRemainingInFrame < uint64(len(b)) {
 			readResult, err = r.str.UnreliableRead(b[:r.bytesRemainingInFrame])
