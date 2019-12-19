@@ -181,6 +181,7 @@ func (s *receiveStream) unreliableReadImpl(p []byte, result *UnreliableReadResul
 				case <-s.finReadChan:
 					// FINが読まれたのでdequeueしてロスレンジを計算 null byte padding
 					s.forceDequeNextFrame(result)
+					s.signalFinRead()
 				}
 			} else {
 				fmt.Println("VIDEO: unreliableReadImpl: deadline non zero")
@@ -189,6 +190,7 @@ func (s *receiveStream) unreliableReadImpl(p []byte, result *UnreliableReadResul
 				case <-s.finReadChan:
 					// FINが読まれたのでdequeueしてロスレンジを計算 null byte padding
 					s.forceDequeNextFrame(result)
+					s.signalFinRead()
 				case <-deadlineTimer.Chan():
 					deadlineTimer.SetRead()
 				}
