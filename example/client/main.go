@@ -51,7 +51,7 @@ func main() {
 		panic(err)
 	}
 	// logger.Infof("Got response for %s: %#v", url, rsp)
-	oneMB := int64(1.049e+6) // VIDEO: セグメントは1MB以内と仮定
+	oneMB := int64(1.049e+3) // VIDEO: セグメントは1MB以内と仮定
 	buffer := make([]byte, oneMB)
 	body, _ := rsp.Body.(*http3.Body)
 
@@ -67,6 +67,7 @@ func main() {
 func get(hclient *http.Client, url string, unreliable bool) (*http.Response, error) {
 	ctx := context.WithValue(context.Background(), "unreliable_key", unreliable)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req.Header.Add("Transport-Response-Reliability", "unreliable")
 	if err != nil {
 		return nil, err
 	}

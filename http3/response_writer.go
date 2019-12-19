@@ -74,10 +74,20 @@ func (w *responseWriter) Write(p []byte) (int, error) {
 	buf := &bytes.Buffer{}
 	df.Write(buf)
 	// TODO: ヘッダを解釈して選択的に送る
-	if _, err := w.stream.UnreliableWrite(buf.Bytes()); err != nil {
-		return 0, err
+	if w.Header().Get("Transport-Response-Reliability") == "" {
+		// VIDEO: Reliable write
+		if _, err := w.stream.Write(buf.Bytes()); err != nil {
+			return 0, err
+		}
+
+		return w.stream.Write(p)
+	} else {
+		// VIDEO: Unreliable write
+		if _, err := w.stream.UnreliableWrite(buf.Bytes()); err != nil {
+			return 0, err
+		}
+		return w.stream.UnreliableWrite(p)
 	}
-	return w.stream.UnreliableWrite(p)
 }
 
 func (w *responseWriter) Flush() {}
