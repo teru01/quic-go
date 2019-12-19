@@ -2,7 +2,6 @@ package quic
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/utils"
@@ -165,7 +164,6 @@ func (s *frameSorter) push(data []byte, offset protocol.ByteCount, doneCb func()
 }
 
 func (s *frameSorter) Pop() (protocol.ByteCount, []byte, func()) {
-	fmt.Println("VIDEO: pop frame: readpos ", s.readPos)
 	entry, ok := s.queue[s.readPos]
 	if !ok {
 		return s.readPos, nil, nil
@@ -174,6 +172,28 @@ func (s *frameSorter) Pop() (protocol.ByteCount, []byte, func()) {
 	offset := s.readPos
 	s.readPos += protocol.ByteCount(len(entry.Data))
 	return offset, entry.Data, entry.DoneCb
+}
+
+// VIDEO: TODO: 次がnullでも取り出す。
+func (s *frameSorter) ForcePop() (protocol.ByteCount, []byte, func(), bool /* true if padding fragment */) {
+	var lossByte protocol.ByteCount
+	offset := s.readPos
+	for _, ok := s.queue[s.readPos]; !ok; s.readPos++ {
+		lossByte++
+	}
+
+	if lossByte > 0 {
+		padding := make([]byte, lossByte)
+		for i:=0; i<int(lossByte); i++ {
+			padding[i] = 0
+		}
+		return offset, padding, nil, true
+	}
+
+	entry := s.queue[s.readPos]
+	delete(s.queue, s.readPos)
+	s.readPos += protocol.ByteCount(len(entry.Data))
+	return offset, entry.Data, entry.DoneCb, false
 }
 
 // HasMoreData says if there is any more data queued at *any* offset.
