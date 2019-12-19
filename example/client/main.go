@@ -53,7 +53,7 @@ func main() {
 	// logger.Infof("Got response for %s: %#v", url, rsp)
 
 	body := &bytes.Buffer{}
-	_, err = io.Copy(body, rsp.Body)
+	_, err = io.Copy(body, rsp.Body) // ここでrsp.Body.Read()が呼ばれて、初めてバイトストリームからの読み出し
 	if err != nil {
 		panic(err)
 	}
@@ -67,4 +67,12 @@ func get(hclient *http.Client, url string, unreliable bool) (*http.Response, err
 		return nil, err
 	}
 	return hclient.Do(req)
+}
+
+
+func UnreliableGet(hclient *http.Client, url string) {
+	resp := hclient.UnreliableGet()
+	lossRange := resp.lossRange
+	body := &bytes.Buffer{}
+	io.Copy(body, resp.Body)
 }

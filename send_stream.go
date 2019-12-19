@@ -429,6 +429,9 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 		s.mutex.Unlock()
 
 		s.sender.onHasStreamData(s.streamID)
+		if sf.FinBit {
+			fmt.Println("VIDEO: retransmit FIN STREAM")
+		}
 	case *wire.UnreliableStreamFrame:
 		sf.DataLenPresent = true
 		s.mutex.Lock()
@@ -441,8 +444,10 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 		s.mutex.Unlock()
 
 		s.sender.onHasStreamData(s.streamID)
+		if sf.FinBit {
+			fmt.Println("VIDEO: retransmit FIN STREAM")
+		}
 	}
-
 }
 
 func (s *sendStream) Close() error {

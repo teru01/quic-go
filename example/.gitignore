@@ -1,2 +1,4 @@
 example
 client/client
+cert.pem
+key.pem

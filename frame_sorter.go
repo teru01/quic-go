@@ -2,6 +2,7 @@ package quic
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/utils"
@@ -164,6 +165,7 @@ func (s *frameSorter) push(data []byte, offset protocol.ByteCount, doneCb func()
 }
 
 func (s *frameSorter) Pop() (protocol.ByteCount, []byte, func()) {
+	fmt.Println("VIDEO: pop frame: readpos ", s.readPos)
 	entry, ok := s.queue[s.readPos]
 	if !ok {
 		return s.readPos, nil, nil

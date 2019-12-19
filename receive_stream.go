@@ -78,7 +78,20 @@ func (s *receiveStream) StreamID() protocol.StreamID {
 }
 
 // Read implements io.Reader. It is not thread safe!
+// この時にreceiveStreamにロス情報を持たせて上位にあげる
 func (s *receiveStream) Read(p []byte) (int, error) {
+	s.mutex.Lock()
+	completed, n, err := s.readImpl(p)
+	s.mutex.Unlock()
+
+	if completed {
+		s.sender.onStreamCompleted(s.streamID)
+	}
+	return n, err
+}
+
+// 
+func (s *receiveStream) UnreliableRead(p []byte) (int, error) {
 	s.mutex.Lock()
 	completed, n, err := s.readImpl(p)
 	s.mutex.Unlock()
@@ -287,7 +300,7 @@ func (s *receiveStream) handleStreamFrameImpl(frame wire.StreamFrameInterface) (
 	var newlyRcvdFinalOffset bool
 	if frame.GetFinBit() {
 		newlyRcvdFinalOffset = s.finalOffset == protocol.MaxByteCount
-		fmt.Println("get fin bit offset: ", maxOffset)  // これが最初に呼ばれるのが原因
+		fmt.Println("VIDEO: get fin bit offset: ", maxOffset)  // これが最初に呼ばれるのが原因
 		s.finalOffset = maxOffset
 	}
 	if s.canceledRead {

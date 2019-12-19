@@ -50,6 +50,8 @@ func (r *body) Read(b []byte) (int, error) {
 	return n, err
 }
 
+// VIDEO: この中でrecv_streamのReadが呼ばれる
+// 全て読みきるわけではない
 func (r *body) readImpl(b []byte) (int, error) {
 	if r.bytesRemainingInFrame == 0 {
 	parseLoop:

@@ -225,7 +225,7 @@ func (c *client) doRequest(
 	headerBlock := make([]byte, hf.Length)
 	fmt.Println("client: hf.length: ", hf.Length)
 	if _, err := io.ReadFull(str, headerBlock); err != nil {
-		return nil, newStreamError(errorRequestIncomplete, err)//ヘッダーフレーム分のデータが読み込めなかった場合に起こる
+		return nil, newStreamError(errorRequestIncomplete, err) //ヘッダーフレーム分のデータが読み込めなかった場合に起こる
 	}
 	hfs, err := c.decoder.DecodeFull(headerBlock)
 	if err != nil {
@@ -233,6 +233,7 @@ func (c *client) doRequest(
 		return nil, newConnError(errorGeneralProtocolError, err)
 	}
 
+	// VIDEO: lossRangeを持たせる、ヘッダー読んでUnreliableにReadする
 	res := &http.Response{
 		Proto:      "HTTP/3",
 		ProtoMajor: 3,
