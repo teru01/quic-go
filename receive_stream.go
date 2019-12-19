@@ -90,16 +90,25 @@ func (s *receiveStream) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// 
-func (s *receiveStream) UnreliableRead(p []byte) (int, error) {
+type UnreliableReadResult struct{
+	N int
+	LossRange *utils.ByteIntervalList
+}
+
+// VIDEO: ロスした範囲を同時に返す
+func (s *receiveStream) UnreliableRead(p []byte) (UnreliableReadResult, error) {
 	s.mutex.Lock()
-	completed, n, err := s.readImpl(p)
+	completed, readResult, err := s.unreliableReadImpl(p)
 	s.mutex.Unlock()
 
 	if completed {
 		s.sender.onStreamCompleted(s.streamID)
 	}
-	return n, err
+	return readResult, err
+}
+
+func (s *receiveStream) unreliableReadImpl(p []byte) (bool /*stream completed */, UnreliableReadResult, error) {
+	return true, UnreliableReadResult{N: 0, LossRange: nil}, nil
 }
 
 func (s *receiveStream) readImpl(p []byte) (bool /*stream completed */, int, error) {

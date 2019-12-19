@@ -3,6 +3,7 @@ package http3
 import (
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/lucas-clemente/quic-go"
 )
@@ -40,6 +41,61 @@ func newResponseBody(str quic.Stream, done chan<- struct{}, onFrameError func())
 		onFrameError: onFrameError,
 		reqDone:      done,
 	}
+}
+
+func (r *body) myReadImpl(b []byte, resp *http.Response) (*quic.UnreliableReadResult, error) {
+	if r.bytesRemainingInFrame == 0 {
+	parseLoop:
+		for {
+			frame, err := parseNextFrame(r.str)
+			if err != nil {
+				return nil, err
+			}
+			switch f := frame.(type) {
+			case *headersFrame:
+				// skip HEADERS frames
+				continue
+			case *dataFrame:
+				r.bytesRemainingInFrame = f.Length
+				break parseLoop
+			default:
+				r.onFrameError()
+				// parseNextFrame skips over unknown frame types
+				// Therefore, this condition is only entered when we parsed another known frame type.
+				return nil, fmt.Errorf("peer sent an unexpected frame: %T", f)
+			}
+		}
+	}
+	var n int
+	var err error
+	if resp.Header.Get("Transport-Response-Reliability") == "" {
+		// VIDEO: Reliable read
+		if r.bytesRemainingInFrame < uint64(len(b)) {
+			n, err = r.str.Read(b[:r.bytesRemainingInFrame])
+		} else {
+			n, err = r.str.Read(b)
+		}
+		r.bytesRemainingInFrame -= uint64(n)
+		return &quic.UnreliableReadResult{N: n, LossRange: nil}, err
+	} else {
+		// VIDEO: unreliable read
+		var readResult quic.UnreliableReadResult
+		if r.bytesRemainingInFrame < uint64(len(b)) {
+			readResult, err = r.str.UnreliableRead(b[:r.bytesRemainingInFrame])
+		} else {
+			readResult, err = r.str.UnreliableRead(b)
+		}
+		r.bytesRemainingInFrame -= uint64(n)
+		return &readResult, err
+	}
+}
+
+func (r *body) MyRead(b []byte, resp *http.Response) (*quic.UnreliableReadResult, error) {
+	n, err := r.myReadImpl(b, resp)
+	if err != nil && !r.isRequest {
+		r.requestDone()
+	}
+	return n, err
 }
 
 func (r *body) Read(b []byte) (int, error) {
