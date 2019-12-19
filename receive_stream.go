@@ -69,6 +69,7 @@ func newReceiveStream(
 		flowController: flowController,
 		frameQueue:     newFrameSorter(),
 		readChan:       make(chan struct{}, 1),
+		finReadChan:    make(chan struct{}, 1),
 		finalOffset:    protocol.MaxByteCount,
 		version:        version,
 	}
