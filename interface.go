@@ -104,7 +104,7 @@ type Stream interface {
 	SetDeadline(t time.Time) error
 
 	UnreliableWrite([]byte) (int, error)
-	UnreliableRead([]byte) (UnreliableReadResult, error)
+	UnreliableRead([]byte) (*UnreliableReadResult, error)
 }
 
 // A ReceiveStream is a unidirectional Receive Stream.

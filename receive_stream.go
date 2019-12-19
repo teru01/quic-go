@@ -102,7 +102,7 @@ type UnreliableReadResult struct {
 }
 
 // VIDEO: ロスした範囲を同時に返す
-func (s *receiveStream) UnreliableRead(p []byte) (UnreliableReadResult, error) {
+func (s *receiveStream) UnreliableRead(p []byte) (*UnreliableReadResult, error) {
 	s.mutex.Lock()
 	result := UnreliableReadResult{N: 0, LossRange: make([]ByteRange, 0)}
 	completed, readResult, err := s.unreliableReadImpl(p, &result)

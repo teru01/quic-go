@@ -80,14 +80,14 @@ func (r *Body) myReadImpl(b []byte, resp *http.Response) (*quic.UnreliableReadRe
 		return &quic.UnreliableReadResult{N: n, LossRange: nil}, err
 	} else {
 		// VIDEO: unreliable read　この時はHTTPデータフレームのペイロードしか読まない: finbitが届いてるなら飛ばし読みできる
-		var readResult quic.UnreliableReadResult
+		var readResult *quic.UnreliableReadResult
 		if r.bytesRemainingInFrame < uint64(len(b)) {
 			readResult, err = r.str.UnreliableRead(b[:r.bytesRemainingInFrame])
 		} else {
 			readResult, err = r.str.UnreliableRead(b)
 		}
 		r.bytesRemainingInFrame -= uint64(n)
-		return &readResult, err
+		return readResult, err
 	}
 }
 
