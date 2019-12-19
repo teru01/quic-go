@@ -174,6 +174,28 @@ func (s *frameSorter) Pop() (protocol.ByteCount, []byte, func()) {
 	return offset, entry.Data, entry.DoneCb
 }
 
+// VIDEO: 次がnullでも取り出す。
+func (s *frameSorter) ForcePop() (protocol.ByteCount, []byte, func(), bool /* true if padding fragment */) {
+	var lossByte protocol.ByteCount
+	offset := s.readPos
+	for _, ok := s.queue[s.readPos]; !ok; s.readPos++ {
+		lossByte++
+	}
+
+	if lossByte > 0 {
+		padding := make([]byte, lossByte)
+		for i:=0; i<int(lossByte); i++ {
+			padding[i] = 0
+		}
+		return offset, padding, nil, true
+	}
+
+	entry := s.queue[s.readPos]
+	delete(s.queue, s.readPos)
+	s.readPos += protocol.ByteCount(len(entry.Data))
+	return offset, entry.Data, entry.DoneCb, false
+}
+
 // HasMoreData says if there is any more data queued at *any* offset.
 func (s *frameSorter) HasMoreData() bool {
 	return len(s.queue) > 0

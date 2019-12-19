@@ -247,6 +247,9 @@ func (s *Server) handleRequest(str quic.Stream, decoder *qpack.Decoder, onFrameE
 
 	req = req.WithContext(str.Context())
 	responseWriter := newResponseWriter(str, s.logger)
+	if req.Header.Get("Transport-Response-Reliability") != "" {
+		responseWriter.Header().Add("Transport-Response-Reliability", "unreliable")
+	}
 	handler := s.Handler
 	if handler == nil {
 		handler = http.DefaultServeMux

@@ -251,9 +251,8 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 		return nil, hasMoreData
 	}
 
-	fmt.Println("VIDEO: send_stream.go: currentDataUnreliable ", s.isCurrentDataUnreliable)
-
 	stFrame := f.(wire.StreamFrameInterface) // 必ず成功
+	fmt.Printf("VIDEO: send_stream.go: currentDataUnreliable: %v len: %v\n", s.isCurrentDataUnreliable, stFrame.GetDataLen())
 
 	// finビットの立っていないStreamFrame, フレームレベルでUnreliableである必要がある
 	if s.unreliable && !stFrame.GetFinBit() && s.isCurrentDataUnreliable {
@@ -429,6 +428,9 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 		s.mutex.Unlock()
 
 		s.sender.onHasStreamData(s.streamID)
+		if sf.FinBit {
+			fmt.Println("VIDEO: retransmit FIN STREAM")
+		}
 	case *wire.UnreliableStreamFrame:
 		sf.DataLenPresent = true
 		s.mutex.Lock()
@@ -441,8 +443,10 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 		s.mutex.Unlock()
 
 		s.sender.onHasStreamData(s.streamID)
+		if sf.FinBit {
+			fmt.Println("VIDEO: retransmit FIN STREAM")
+		}
 	}
-
 }
 
 func (s *sendStream) Close() error {
