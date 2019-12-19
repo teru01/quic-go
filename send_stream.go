@@ -336,7 +336,7 @@ func (s *sendStream) popNewStreamFrame(f *wire.StreamFrame, maxBytes protocol.By
 
 func (s *sendStream) maybeGetRetransmission(maxBytes protocol.ByteCount) (wire.StreamFrameInterface, bool /* has more retransmissions */) {
 	f := s.retransmissionQueue[0]
-	fmt.Print("VIDEO: retransmission len: ", f.DataLen())
+	fmt.Println("VIDEO: retransmission len: ", f.DataLen())
 	newFrame, needsSplit := f.MaybeSplitOffFrame(maxBytes, s.version)
 	if needsSplit {
 		return newFrame, true
