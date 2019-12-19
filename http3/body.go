@@ -9,7 +9,7 @@ import (
 )
 
 // The body of a http.Request or http.Response.
-type body struct {
+type Body struct {
 	str quic.Stream
 
 	isRequest bool
@@ -25,25 +25,25 @@ type body struct {
 	bytesRemainingInFrame uint64
 }
 
-var _ io.ReadCloser = &body{}
+var _ io.ReadCloser = &Body{}
 
-func newRequestBody(str quic.Stream, onFrameError func()) *body {
-	return &body{
+func newRequestBody(str quic.Stream, onFrameError func()) *Body {
+	return &Body{
 		str:          str,
 		onFrameError: onFrameError,
 		isRequest:    true,
 	}
 }
 
-func newResponseBody(str quic.Stream, done chan<- struct{}, onFrameError func()) *body {
-	return &body{
+func newResponseBody(str quic.Stream, done chan<- struct{}, onFrameError func()) *Body {
+	return &Body{
 		str:          str,
 		onFrameError: onFrameError,
 		reqDone:      done,
 	}
 }
 
-func (r *body) myReadImpl(b []byte, resp *http.Response) (*quic.UnreliableReadResult, error) {
+func (r *Body) myReadImpl(b []byte, resp *http.Response) (*quic.UnreliableReadResult, error) {
 	if r.bytesRemainingInFrame == 0 {
 	parseLoop:
 		for {
@@ -90,7 +90,7 @@ func (r *body) myReadImpl(b []byte, resp *http.Response) (*quic.UnreliableReadRe
 	}
 }
 
-func (r *body) MyRead(b []byte, resp *http.Response) (*quic.UnreliableReadResult, error) {
+func (r *Body) MyRead(b []byte, resp *http.Response) (*quic.UnreliableReadResult, error) {
 	n, err := r.myReadImpl(b, resp)
 	if err != nil && !r.isRequest {
 		r.requestDone()
@@ -98,7 +98,7 @@ func (r *body) MyRead(b []byte, resp *http.Response) (*quic.UnreliableReadResult
 	return n, err
 }
 
-func (r *body) Read(b []byte) (int, error) {
+func (r *Body) Read(b []byte) (int, error) {
 	n, err := r.readImpl(b)
 	if err != nil && !r.isRequest {
 		r.requestDone()
@@ -108,7 +108,7 @@ func (r *body) Read(b []byte) (int, error) {
 
 // VIDEO: この中でrecv_streamのReadが呼ばれる
 // 全て読みきるわけではない
-func (r *body) readImpl(b []byte) (int, error) {
+func (r *Body) readImpl(b []byte) (int, error) {
 	if r.bytesRemainingInFrame == 0 {
 	parseLoop:
 		for {
@@ -143,7 +143,7 @@ func (r *body) readImpl(b []byte) (int, error) {
 	return n, err
 }
 
-func (r *body) requestDone() {
+func (r *Body) requestDone() {
 	if r.reqDoneClosed {
 		return
 	}
@@ -151,7 +151,7 @@ func (r *body) requestDone() {
 	r.reqDoneClosed = true
 }
 
-func (r *body) Close() error {
+func (r *Body) Close() error {
 	// quic.Stream.Close() closes the write side, not the read side
 	if r.isRequest {
 		return r.str.Close()
