@@ -462,7 +462,10 @@ func (s *receiveStream) handleStreamFrameImpl(frame wire.StreamFrameInterface) (
 		return newlyRcvdFinalOffset, nil
 	}
 	err := s.frameQueue.Push(frame.GetData(), frame.GetOffset(), frame.PutBack)
-
+	if err != nil {
+		return false, err
+	}
+	
 	if frame.GetFinBit() {
 		s.frameQueue.setMaxOffset(frame.GetOffset())
 		s.signalFinRead()
@@ -472,9 +475,6 @@ func (s *receiveStream) handleStreamFrameImpl(frame wire.StreamFrameInterface) (
 		if frame.GetFinBit() {
 			fmt.Println("VIDEO: FIN offset: ", frame.GetOffset())
 		}
-	}
-	if err != nil {
-		return false, err
 	}
 	switch frame.(type) {
 	case *wire.StreamFrame:
