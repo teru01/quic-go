@@ -255,7 +255,7 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 	stFrame := f.(wire.StreamFrameInterface) // 必ず成功
 	_, unreliable := stFrame.(*wire.UnreliableStreamFrame)
 
-	fmt.Printf("VIDEO: send_stream.go: currentDataUnreliable: %v len: %v\n", s.isCurrentDataUnreliable, stFrame.GetDataLen())
+	fmt.Printf("VIDEO: send_stream.go: currentDataUnreliable: %v len: %v\n", unreliable, stFrame.GetDataLen())
 
 	// finビットの立っていないStreamFrame, フレームレベルでUnreliableである必要がある
 	if s.unreliable && !stFrame.GetFinBit() && unreliable {
