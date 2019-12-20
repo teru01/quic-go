@@ -51,7 +51,7 @@ func main() {
 		panic(err)
 	}
 	// logger.Infof("Got response for %s: %#v", url, rsp)
-	oneMB := int64(1.049e+5) // VIDEO: セグメントは1MB以内と仮定
+	oneMB := int64(1.049e+6) // VIDEO: セグメントは1MB以内と仮定
 	buffer := make([]byte, oneMB)
 	body, _ := rsp.Body.(*http3.Body)
 
@@ -61,7 +61,7 @@ func main() {
 	if err != nil && err != io.EOF{
 		panic(err)
 	}
-	logger.Infof("%s", buffer)
+	// logger.Infof("%s", buffer)
 }
 
 func get(hclient *http.Client, url string, unreliable bool) (*http.Response, error) {

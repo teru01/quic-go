@@ -121,28 +121,36 @@ func (s *receiveStream) unreliableReadImpl(p []byte, result *UnreliableReadResul
 	fmt.Println("unreliableread impl start")
 	if s.finRead {
 		fmt.Println("VIDEO: FINREAD")
-		return false, &UnreliableReadResult{N: 0, LossRange: nil}, io.EOF
+		return false, result, io.EOF
 	}
 	if s.canceledRead {
 		fmt.Println("VIDEO: CANCELREAD")
-		return false, &UnreliableReadResult{N: 0, LossRange: nil}, s.cancelReadErr
+		return false, result, s.cancelReadErr
 	}
 	if s.resetRemotely {
 		fmt.Println("VIDEO: RESETREMOTE")
-		return false, &UnreliableReadResult{N: 0, LossRange: nil}, s.resetRemotelyErr
+		return false, result, s.resetRemotelyErr
 	}
 	if s.closedForShutdown {
 		fmt.Println("VIDEO: CLOSEDFORSHUTDOWN")
-		return false, &UnreliableReadResult{N: 0, LossRange: nil}, s.closeForShutdownErr
+		return false, result, s.closeForShutdownErr
 	}
 
 	bytesRead := 0
 	for bytesRead < len(p) {
 		if s.currentFrame == nil || s.readPosInFrame >= len(s.currentFrame) { // VIDEO: フレームを全てバッファにコピーできた
-			s.dequeueNextFrame()
+			select {
+			case <- s.finReadChan:
+				s.forceDequeNextFrame(result)
+				s.signalFinRead()
+			default:
+				s.dequeueNextFrame()
+			}
 		}
 		if s.currentFrame == nil && bytesRead > 0 {
-			return false, &UnreliableReadResult{N: bytesRead, LossRange: nil}, s.closeForShutdownErr //VIDEO TODO fix
+			result.N = bytesRead
+			fmt.Println("VIDEO: unreliable closeForShutdownErr")
+			return false, result, s.closeForShutdownErr //VIDEO TODO fix
 		}
 
 		var deadlineTimer *utils.Timer
@@ -197,7 +205,13 @@ func (s *receiveStream) unreliableReadImpl(p []byte, result *UnreliableReadResul
 			}
 			s.mutex.Lock()
 			if s.currentFrame == nil {
-				s.dequeueNextFrame()
+				select {
+				case <- s.finReadChan:
+					s.forceDequeNextFrame(result)
+					s.signalFinRead()
+				default:
+					s.dequeueNextFrame()
+				}
 			}
 		}
 
@@ -228,10 +242,12 @@ func (s *receiveStream) unreliableReadImpl(p []byte, result *UnreliableReadResul
 		if s.readPosInFrame >= len(s.currentFrame) { //currentFrameを最後までコピーした
 			fmt.Println("recv stream end")
 			s.finRead = true
-			return true, &UnreliableReadResult{N: bytesRead, LossRange: nil}, io.EOF // VIDDEO: TODO impl
+			result.N = bytesRead
+			return true, result, io.EOF // VIDDEO: TODO impl
 		}
 	}
 	fmt.Printf("VIDEO: bytesread: %v, len(p): %v\n", bytesRead, len(p))
+	result.N = bytesRead
 	return false, result, nil // VIDDEO: TODO impl
 }
 
@@ -259,6 +275,7 @@ func (s *receiveStream) readImpl(p []byte) (bool /*stream completed */, int, err
 			s.dequeueNextFrame()
 		}
 		if s.currentFrame == nil && bytesRead > 0 {
+			fmt.Println("VIDEO: closeForShutdownErr")
 			return false, bytesRead, s.closeForShutdownErr
 		}
 
@@ -436,13 +453,17 @@ func (s *receiveStream) handleStreamFrameImpl(frame wire.StreamFrameInterface) (
 	if frame.GetFinBit() {
 		newlyRcvdFinalOffset = s.finalOffset == protocol.MaxByteCount
 		fmt.Println("VIDEO: get fin bit max offset: ", maxOffset) // これが最初に呼ばれるのが原因
-		s.signalFinRead()
 		s.finalOffset = maxOffset
 	}
 	if s.canceledRead {
 		return newlyRcvdFinalOffset, nil
 	}
 	err := s.frameQueue.Push(frame.GetData(), frame.GetOffset(), frame.PutBack)
+
+	if frame.GetFinBit() {
+		s.frameQueue.setMaxOffset(frame.GetOffset())
+		s.signalFinRead()
+	}
 	if s.StreamID() == 0 { // VIDEO: client initiated bidi stream
 		fmt.Printf("VIDEO: push frame: offset: %v length: %v\n", frame.GetOffset(), len(frame.GetData()))
 		if frame.GetFinBit() {
