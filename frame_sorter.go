@@ -2,6 +2,7 @@ package quic
 
 import (
 	"errors"
+	"sync"
 	"fmt"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
@@ -201,7 +202,10 @@ func (s *frameSorter) ForcePop() (protocol.ByteCount, []byte, func(), bool /* tr
 	}
 
 	entry := s.queue[s.readPos]
+	var m sync.Mutex
+	m.Lock()
 	delete(s.queue, s.readPos)
+	m.Unlock()
 	s.readPos += protocol.ByteCount(len(entry.Data))
 	return offset, entry.Data, entry.DoneCb, false
 }
