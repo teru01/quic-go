@@ -1,13 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
-	"io"
 	"crypto/tls"
 	"flag"
-	"net/http"
 	"fmt"
+	"io"
+	"net/http"
 
+	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/http3"
 	"github.com/lucas-clemente/quic-go/internal/utils"
 )
@@ -51,17 +53,28 @@ func main() {
 		panic(err)
 	}
 	// logger.Infof("Got response for %s: %#v", url, rsp)
-	oneMB := int64(1.049e+6) // VIDEO: セグメントは1MB以内と仮定
-	buffer := make([]byte, oneMB)
 	body, _ := rsp.Body.(*http3.Body)
 
-	result, err := body.MyRead(buffer, rsp)
-	fmt.Println(result.LossRange)
+	vbuf := &bytes.Buffer{}
+	n, lossRange, err := Copy(vbuf, body, rsp)
+
+	// lossRange, err := body.MyRead(buffer, rsp)
+	fmt.Println("recv Bytes: ", n)
+	fmt.Println("lossRange: ", lossRange)
+	validBytes := calcValidBytes(n, lossRange)
+	fmt.Println("validBytes: ", validBytes)
+	fmt.Println("loss ratio: ", float64(n - validBytes) / float64(n))
 	// _, err = io.Copy(body, rsp.Body) // ここでrsp.Body.Read()が呼ばれて、初めてバイトストリームからの読み出し
-	if err != nil && err != io.EOF{
+	if err != nil && err != io.EOF {
 		panic(err)
 	}
-	logger.Infof("%s", buffer)
+}
+
+func calcValidBytes(n int64, byteRange []quic.ByteRange) int64 {
+	for _, br := range byteRange {
+		n -= int64(br.End - br.Start)
+	}
+	return n
 }
 
 func get(hclient *http.Client, url string, unreliable bool) (*http.Response, error) {
@@ -76,11 +89,52 @@ func get(hclient *http.Client, url string, unreliable bool) (*http.Response, err
 	return hclient.Do(req)
 }
 
-// func UnreliableGet(hclient *http.Client, url string) {
-// 	resp := hclient.UnreliableGet()
-// 	resp.Body.My
-// 	lossRange := resp.lossRange
-// 	body := &bytes.Buffer{}
-// 	// resp.Body.Read(body)
-// 	// io.Copy(body, resp.Body)
-// }
+func Copy(dst io.Writer, src *http3.Body, rsp *http.Response) (int64, []quic.ByteRange, error) {
+	return copyBuffer(dst, src, nil, rsp)
+}
+
+// ここで帰るresultは最後の読み取りでのresult。lossRangeは呼ばれるたびに保存されてappendされてる
+func copyBuffer(dst io.Writer, src io.Reader, buf []byte, rsp *http.Response) (int64, []quic.ByteRange, error) {
+	if buf == nil {
+		size := 32 * 1024
+		if l, ok := src.(*io.LimitedReader); ok && int64(size) > l.N {
+			if l.N < 1 {
+				size = 1
+			} else {
+				size = int(l.N)
+			}
+		}
+		buf = make([]byte, size)
+	}
+	lossRange := make([]quic.ByteRange, 0)
+	var written int64
+	var err error
+	for {
+		if body, ok := src.(*http3.Body); ok {
+			result, er := body.MyRead(buf, rsp)
+			lossRange = append(lossRange, result.LossRange...)
+			nr := result.N
+			if nr > 0 {
+				nw, ew := dst.Write(buf[0:nr])
+				if nw > 0 {
+					written += int64(nw)
+				}
+				if ew != nil {
+					err = ew
+					break
+				}
+				if nr != nw {
+					err = io.ErrShortWrite
+					break
+				}
+			}
+			if er != nil {
+				if er != io.EOF {
+					err = er
+				}
+				break
+			}
+		}
+	}
+	return written, lossRange, err
+}
