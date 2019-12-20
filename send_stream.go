@@ -28,9 +28,9 @@ type sendStreamI interface {
 type sendStream struct {
 	mutex sync.Mutex
 
-	numOutstandingFrames int64
+	numOutstandingFrames   int64
 	unreliableMustAckedNum int64
-	retransmissionQueue  []wire.StreamFrameInterface
+	retransmissionQueue    []wire.StreamFrameInterface
 
 	ctx       context.Context
 	ctxCancel context.CancelFunc
@@ -52,8 +52,9 @@ type sendStream struct {
 	dataForWriting          []byte
 	isCurrentDataUnreliable bool
 
-	writeChan chan struct{}
-	deadline  time.Time
+	writeChan      chan struct{}
+	unreliableChan chan bool
+	deadline       time.Time
 
 	flowController flowcontrol.StreamFlowController
 
@@ -78,6 +79,7 @@ func newSendStream(
 		flowController:          flowController,
 		isCurrentDataUnreliable: false,
 		writeChan:               make(chan struct{}, 1),
+		unreliableChan:          make(chan bool, 1),
 		version:                 version,
 		unreliable:              unreliable,
 	}
@@ -110,6 +112,7 @@ func (s *sendStream) Write(p []byte) (int, error) {
 	}
 
 	s.dataForWriting = p
+	s.isCurrentDataUnreliable = false
 
 	var (
 		deadlineTimer  *utils.Timer
@@ -132,11 +135,6 @@ func (s *sendStream) Write(p []byte) (int, error) {
 		if s.dataForWriting == nil || s.canceledWrite || s.closedForShutdown {
 			break
 		}
-
-		var tmp sync.Mutex
-		tmp.Lock()
-		s.isCurrentDataUnreliable = false
-		tmp.Unlock()
 
 		s.mutex.Unlock()
 		if !notifiedSender {
@@ -184,6 +182,7 @@ func (s *sendStream) UnreliableWrite(p []byte) (int, error) {
 	}
 
 	s.dataForWriting = p
+	s.isCurrentDataUnreliable = true //dataForWritingと同様に扱う
 
 	var (
 		deadlineTimer  *utils.Timer
@@ -206,12 +205,6 @@ func (s *sendStream) UnreliableWrite(p []byte) (int, error) {
 		if s.dataForWriting == nil || s.canceledWrite || s.closedForShutdown {
 			break
 		}
-
-		// unreliable write
-		var tmp sync.Mutex
-		tmp.Lock()
-		s.isCurrentDataUnreliable = true //dataForWritingと同様に扱う
-		tmp.Unlock()
 
 		s.mutex.Unlock()
 		if !notifiedSender {
@@ -242,7 +235,7 @@ func (s *sendStream) UnreliableWrite(p []byte) (int, error) {
 // maxBytes is the maximum length this frame (including frame header) will have.
 func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Frame, bool /* has more data to send */) {
 	s.mutex.Lock()
-	f, hasMoreData := s.popNewOrRetransmittedStreamFrame(maxBytes)
+	f, hasMoreData := s.popNewOrRetransmittedStreamFrame(maxBytes) //ここでUnreliable情報をエンキューする。returnするたびに取り出す
 	if f != nil {
 		s.numOutstandingFrames++ //ACKされてないフレーム数？
 	}
@@ -257,10 +250,10 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 
 	fmt.Printf("VIDEO: send_stream.go: currentDataUnreliable: %v len: %v\n", unreliable, stFrame.GetDataLen())
 
-	// finビットの立っていないStreamFrame, フレームレベルでUnreliableである必要がある
-	if s.unreliable && !stFrame.GetFinBit() && unreliable {
+	// FINbitじゃないUnreliableFrame
+	if <-s.unreliableChan && !f.GetFinBit() {
 		// 再送を行わない
-		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: func(f wire.Frame){}}, hasMoreData
+		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: func(f wire.Frame) {}}, hasMoreData
 	}
 	if s.unreliable && stFrame.GetFinBit() {
 		fmt.Println("VIDEO: send_stream.go: send fin reliably")
@@ -274,6 +267,8 @@ func (s *sendStream) popNewOrRetransmittedStreamFrame(maxBytes protocol.ByteCoun
 
 	if len(s.retransmissionQueue) > 0 {
 		f, hasMoreRetransmissions := s.maybeGetRetransmission(maxBytes)
+		_, unrelilable := f.(*wire.UnreliableStreamFrame)
+		s.unreliableChan <- unrelilable
 		if f != nil || hasMoreRetransmissions {
 			if f == nil {
 				return nil, true
@@ -290,6 +285,7 @@ func (s *sendStream) popNewOrRetransmittedStreamFrame(maxBytes protocol.ByteCoun
 	f.Offset = s.writeOffset
 	f.DataLenPresent = true
 	f.Data = f.Data[:0]
+	s.unreliableChan <- s.isCurrentDataUnreliable
 
 	hasMoreData := s.popNewStreamFrame(f, maxBytes)
 
@@ -297,11 +293,14 @@ func (s *sendStream) popNewOrRetransmittedStreamFrame(maxBytes protocol.ByteCoun
 		f.PutBack()
 		return nil, hasMoreData
 	}
-	if s.isCurrentDataUnreliable {
+
+	t := <-s.unreliableChan
+	if t {
 		frameInterface = &wire.UnreliableStreamFrame{f}
 	} else {
 		frameInterface = f
 	}
+	s.unreliableChan <- t
 	return frameInterface, hasMoreData
 }
 
@@ -377,6 +376,7 @@ func (s *sendStream) getDataForWriting(f *wire.StreamFrame, maxBytes protocol.By
 		s.dataForWriting = nil
 		s.signalWrite()
 	}
+
 	s.writeOffset += f.DataLen()
 	s.flowController.AddBytesSent(f.DataLen())
 	f.FinBit = s.finishedWriting && s.dataForWriting == nil && !s.finSent
@@ -415,7 +415,7 @@ func (s *sendStream) frameAcked(f wire.Frame) {
 func (s *sendStream) isNewlyCompleted() bool {
 	var completed bool
 	if s.unreliable {
-		completed = (s.finSent || s.canceledWrite) && s.unreliableMustAckedNum == 0  && len(s.retransmissionQueue) == 0 //ackを受け取った時にfinsentを送信した後
+		completed = (s.finSent || s.canceledWrite) && s.unreliableMustAckedNum == 0 && len(s.retransmissionQueue) == 0 //ackを受け取った時にfinsentを送信した後
 		if completed {
 			fmt.Println("VIDEO: send_stream.go: unreliable stream received ack of fin frame")
 		}
@@ -442,7 +442,7 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 		s.retransmissionQueue = append(s.retransmissionQueue, sf)
 		s.numOutstandingFrames--
 		s.unreliableMustAckedNum--
-		if s.numOutstandingFrames < 0 || s.unreliableMustAckedNum < 0{
+		if s.numOutstandingFrames < 0 || s.unreliableMustAckedNum < 0 {
 			panic("numOutStandingFrames negative")
 		}
 		s.mutex.Unlock()
@@ -457,7 +457,7 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 		// fmt.Printf("add STREAM FRAME to retransmission queue id: %v\n", s.StreamID())
 		s.retransmissionQueue = append(s.retransmissionQueue, sf)
 		s.numOutstandingFrames--
-		if s.numOutstandingFrames < 0 || s.unreliableMustAckedNum < 0{
+		if s.numOutstandingFrames < 0 || s.unreliableMustAckedNum < 0 {
 			panic("numOutStandingFrames negative")
 		}
 		s.mutex.Unlock()
