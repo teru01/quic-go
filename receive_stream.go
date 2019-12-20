@@ -93,8 +93,8 @@ func (s *receiveStream) Read(p []byte) (int, error) {
 }
 
 type ByteRange struct {
-	start protocol.ByteCount
-	end protocol.ByteCount
+	Start protocol.ByteCount
+	End protocol.ByteCount
 }
 
 type UnreliableReadResult struct {
@@ -394,7 +394,7 @@ func (s *receiveStream) forceDequeNextFrame(result *UnreliableReadResult) {
 	offset, s.currentFrame, s.currentFrameDone, isPaddingFragment = s.frameQueue.ForcePop()
 	if isPaddingFragment {
 		fmt.Printf("VIDEO: force poped. append lossRange: %v-%v\n", offset, offset + protocol.ByteCount(len(s.currentFrame)))
-		result.LossRange = append(result.LossRange, ByteRange{start: offset, end: offset + protocol.ByteCount(len(s.currentFrame))})
+		result.LossRange = append(result.LossRange, ByteRange{Start: offset, End: offset + protocol.ByteCount(len(s.currentFrame))})
 	}
 	if s.StreamID() == 0 {
 		if s.currentFrame == nil {
