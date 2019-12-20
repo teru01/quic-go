@@ -364,6 +364,7 @@ func (s *receiveStream) dequeueNextFrame() {
 
 // VIDEO 次のフレームが存在していなくてもnullbyteをpopする
 func (s *receiveStream) forceDequeNextFrame(result *UnreliableReadResult) {
+	fmt.Println("VIDEO: force dequeue next frame start")
 	var offset protocol.ByteCount
 	// We're done with the last frame. Release the buffer.
 	if s.currentFrameDone != nil {

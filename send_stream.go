@@ -210,7 +210,7 @@ func (s *sendStream) UnreliableWrite(p []byte) (int, error) {
 		// unreliable write
 		var tmp sync.Mutex
 		tmp.Lock()
-		s.isCurrentDataUnreliable = true
+		s.isCurrentDataUnreliable = true //dataForWritingと同様に扱う
 		tmp.Unlock()
 
 		s.mutex.Unlock()
@@ -253,10 +253,12 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 	}
 
 	stFrame := f.(wire.StreamFrameInterface) // 必ず成功
+	_, unreliable := stFrame.(*wire.UnreliableStreamFrame)
+
 	fmt.Printf("VIDEO: send_stream.go: currentDataUnreliable: %v len: %v\n", s.isCurrentDataUnreliable, stFrame.GetDataLen())
 
 	// finビットの立っていないStreamFrame, フレームレベルでUnreliableである必要がある
-	if s.unreliable && !stFrame.GetFinBit() && s.isCurrentDataUnreliable {
+	if s.unreliable && !stFrame.GetFinBit() && unreliable {
 		// 再送を行わない
 		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: func(f wire.Frame){}}, hasMoreData
 	}
@@ -295,7 +297,7 @@ func (s *sendStream) popNewOrRetransmittedStreamFrame(maxBytes protocol.ByteCoun
 		f.PutBack()
 		return nil, hasMoreData
 	}
-	if s.unreliable {
+	if s.isCurrentDataUnreliable {
 		frameInterface = &wire.UnreliableStreamFrame{f}
 	} else {
 		frameInterface = f
