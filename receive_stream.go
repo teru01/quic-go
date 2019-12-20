@@ -228,7 +228,6 @@ func (s *receiveStream) unreliableReadImpl(p []byte, result *UnreliableReadResul
 		if s.readPosInFrame >= len(s.currentFrame) { //currentFrameを最後までコピーした
 			fmt.Println("recv stream end")
 			s.finRead = true
-			s.signalFinRead()
 			return true, &UnreliableReadResult{N: bytesRead, LossRange: nil}, io.EOF // VIDDEO: TODO impl
 		}
 	}
@@ -436,6 +435,7 @@ func (s *receiveStream) handleStreamFrameImpl(frame wire.StreamFrameInterface) (
 	if frame.GetFinBit() {
 		newlyRcvdFinalOffset = s.finalOffset == protocol.MaxByteCount
 		fmt.Println("VIDEO: get fin bit max offset: ", maxOffset) // これが最初に呼ばれるのが原因
+		s.signalFinRead()
 		s.finalOffset = maxOffset
 	}
 	if s.canceledRead {
