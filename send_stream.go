@@ -258,7 +258,7 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 	// finビットの立っていないStreamFrame, フレームレベルでUnreliableである必要がある
 	if s.unreliable && !stFrame.GetFinBit() && s.isCurrentDataUnreliable {
 		// 再送を行わない
-		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: s.frameAcked}, hasMoreData
+		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: func(f wire.Frame){}}, hasMoreData
 	}
 	if s.unreliable && stFrame.GetFinBit() {
 		fmt.Println("VIDEO: send_stream.go: send fin reliably")
@@ -379,6 +379,19 @@ func (s *sendStream) getDataForWriting(f *wire.StreamFrame, maxBytes protocol.By
 	s.flowController.AddBytesSent(f.DataLen())
 	f.FinBit = s.finishedWriting && s.dataForWriting == nil && !s.finSent
 }
+
+// VIDEO: Unreliableに送信したフレームのACKが返って来た時
+// func (s *sendStream) unreliableAcked(f wire.Frame) {
+// 	f.(wire.StreamFrameInterface).PutBack()
+
+// 	s.mutex.Lock()
+// 	newlyCompleted := s.isNewlyCompleted()
+// 	s.mutex.Unlock()
+
+// 	if newlyCompleted {
+// 		s.sender.onStreamCompleted(s.streamID)
+// 	}
+// }
 
 func (s *sendStream) frameAcked(f wire.Frame) {
 	f.(wire.StreamFrameInterface).PutBack()
