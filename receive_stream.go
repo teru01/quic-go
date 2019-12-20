@@ -271,11 +271,13 @@ func (s *receiveStream) readImpl(p []byte) (bool /*stream completed */, int, err
 
 	bytesRead := 0
 	for bytesRead < len(p) {
+		fmt.Printf("readpos: %v, len(frame) %v:\n", s.readPosInFrame, len(s.currentFrame))
 		if s.currentFrame == nil || s.readPosInFrame >= len(s.currentFrame) {
+			fmt.Println("VIDEO: first dequue")
 			s.dequeueNextFrame()
 		}
 		if s.currentFrame == nil && bytesRead > 0 {
-			fmt.Println("VIDEO: closeForShutdownErr")
+			fmt.Println("VIDEO: closeForShutdownErr: ", s.closeForShutdownErr)
 			return false, bytesRead, s.closeForShutdownErr
 		}
 
@@ -304,6 +306,7 @@ func (s *receiveStream) readImpl(p []byte) (bool /*stream completed */, int, err
 			}
 
 			if s.currentFrame != nil || s.currentFrameIsLast {
+				fmt.Println("VIDEO inner loop break")
 				break
 			}
 

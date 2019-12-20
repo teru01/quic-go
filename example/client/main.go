@@ -61,7 +61,7 @@ func main() {
 	if err != nil && err != io.EOF{
 		panic(err)
 	}
-	// logger.Infof("%s", buffer)
+	logger.Infof("%s", buffer)
 }
 
 func get(hclient *http.Client, url string, unreliable bool) (*http.Response, error) {
