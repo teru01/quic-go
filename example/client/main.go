@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"context"
 	"crypto/tls"
 	"flag"
@@ -68,6 +69,15 @@ func main() {
 	if err != nil && err != io.EOF {
 		panic(err)
 	}
+	f, err := os.OpenFile("movie.svc", os.O_WRONLY|os.O_CREATE, 0755)
+	if err != nil {
+		panic(err)
+	}
+	_, err = f.Write(vbuf.Bytes())
+	if err != nil {
+		panic(err)
+	}
+
 }
 
 func calcValidBytes(n int64, byteRange []quic.ByteRange) int64 {

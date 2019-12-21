@@ -52,6 +52,8 @@ type receiveStream struct {
 
 	flowController flowcontrol.StreamFlowController
 	version        protocol.VersionNumber
+
+	dataPayloadOffset protocol.ByteCount
 }
 
 var _ ReceiveStream = &receiveStream{}
@@ -104,6 +106,9 @@ type UnreliableReadResult struct {
 
 // VIDEO: ロスした範囲を同時に返す
 func (s *receiveStream) UnreliableRead(p []byte) (*UnreliableReadResult, error) {
+	if s.dataPayloadOffset == 0 { // そのストリームの初回のUnreliable Read
+		s.dataPayloadOffset = s.frameQueue.readPos
+	}
 	s.mutex.Lock()
 	result := UnreliableReadResult{N: 0, LossRange: make([]ByteRange, 0)}
 	completed, readResult, err := s.unreliableReadImpl(p, &result)
@@ -394,7 +399,7 @@ func (s *receiveStream) forceDequeNextFrame(result *UnreliableReadResult) {
 	offset, s.currentFrame, s.currentFrameDone, isPaddingFragment = s.frameQueue.ForcePop()
 	if isPaddingFragment {
 		fmt.Printf("VIDEO: force poped. append lossRange: %v-%v\n", offset, offset + protocol.ByteCount(len(s.currentFrame)))
-		result.LossRange = append(result.LossRange, ByteRange{Start: offset, End: offset + protocol.ByteCount(len(s.currentFrame))})
+		result.LossRange = append(result.LossRange, ByteRange{Start: offset - s.dataPayloadOffset, End: offset + protocol.ByteCount(len(s.currentFrame)) - s.dataPayloadOffset})
 	}
 	if s.StreamID() == 0 {
 		if s.currentFrame == nil {
