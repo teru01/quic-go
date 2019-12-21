@@ -1,4 +1,5 @@
 example
 client/client
+client/movie.svc
 cert.pem
 key.pem
