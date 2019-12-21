@@ -2,8 +2,8 @@ package quic
 
 import (
 	"errors"
-	"sync"
 	"fmt"
+	"sync"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/utils"
@@ -15,9 +15,9 @@ type frameSorterEntry struct {
 }
 
 type frameSorter struct {
-	queue   map[protocol.ByteCount]frameSorterEntry
-	readPos protocol.ByteCount
-	gaps    *utils.ByteIntervalList
+	queue     map[protocol.ByteCount]frameSorterEntry
+	readPos   protocol.ByteCount
+	gaps      *utils.ByteIntervalList
 	maxOffset protocol.ByteCount
 }
 
@@ -185,7 +185,12 @@ func (s *frameSorter) Pop() (protocol.ByteCount, []byte, func()) {
 func (s *frameSorter) ForcePop() (protocol.ByteCount, []byte, func(), bool /* true if padding fragment */) {
 	var lossByte protocol.ByteCount
 	offset := s.readPos
-	for _, ok := s.queue[s.readPos]; !ok; s.readPos++ {
+
+	for ; ; s.readPos++ {
+		_, ok := s.queue[s.readPos]
+		if ok {
+			break
+		}
 		if s.readPos >= s.maxOffset {
 			fmt.Println("VIDEO: readpos exceed", s.readPos)
 			break
@@ -195,7 +200,7 @@ func (s *frameSorter) ForcePop() (protocol.ByteCount, []byte, func(), bool /* tr
 	fmt.Println("VIDEO: find fragment: readPos: ", s.readPos)
 	if lossByte > 0 {
 		padding := make([]byte, lossByte)
-		for i:=0; i<int(lossByte); i++ {
+		for i := 0; i < int(lossByte); i++ {
 			padding[i] = 0
 		}
 		return offset, padding, nil, true
