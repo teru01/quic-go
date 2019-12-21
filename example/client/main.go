@@ -2,12 +2,12 @@ package main
 
 import (
 	"bytes"
-	"os"
 	"context"
 	"crypto/tls"
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/lucas-clemente/quic-go"
@@ -64,16 +64,12 @@ func main() {
 	fmt.Println("lossRange: ", lossRange)
 	validBytes := calcValidBytes(n, lossRange)
 	fmt.Println("validBytes: ", validBytes)
-	fmt.Println("loss ratio: ", float64(n - validBytes) / float64(n))
+	fmt.Println("loss ratio: ", float64(n-validBytes)/float64(n))
 	// _, err = io.Copy(body, rsp.Body) // ここでrsp.Body.Read()が呼ばれて、初めてバイトストリームからの読み出し
 	if err != nil && err != io.EOF {
 		panic(err)
 	}
-	f, err := os.OpenFile("movie.svc", os.O_WRONLY|os.O_CREATE, 0755)
-	if err != nil {
-		panic(err)
-	}
-	_, err = f.Write(vbuf.Bytes())
+	err = ioutil.WriteFile("movie.svc", vbuf.Bytes(), 0644)
 	if err != nil {
 		panic(err)
 	}

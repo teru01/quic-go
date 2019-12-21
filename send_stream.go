@@ -268,8 +268,8 @@ func (s *sendStream) popNewOrRetransmittedStreamFrame(maxBytes protocol.ByteCoun
 	if len(s.retransmissionQueue) > 0 {
 		f, hasMoreRetransmissions := s.maybeGetRetransmission(maxBytes)
 		_, unrelilable := f.(*wire.UnreliableStreamFrame)
-		s.unreliableChan <- unrelilable
 		if f != nil || hasMoreRetransmissions {
+			s.signalReliability(unrelilable)
 			if f == nil {
 				return nil, true
 			}
@@ -285,7 +285,7 @@ func (s *sendStream) popNewOrRetransmittedStreamFrame(maxBytes protocol.ByteCoun
 	f.Offset = s.writeOffset
 	f.DataLenPresent = true
 	f.Data = f.Data[:0]
-	s.unreliableChan <- s.isCurrentDataUnreliable
+	s.signalReliability(s.isCurrentDataUnreliable)
 
 	hasMoreData := s.popNewStreamFrame(f, maxBytes)
 
@@ -300,7 +300,7 @@ func (s *sendStream) popNewOrRetransmittedStreamFrame(maxBytes protocol.ByteCoun
 	} else {
 		frameInterface = f
 	}
-	s.unreliableChan <- t
+	s.signalReliability(t)
 	return frameInterface, hasMoreData
 }
 
@@ -559,6 +559,13 @@ func (s *sendStream) closeForShutdown(err error) {
 func (s *sendStream) signalWrite() {
 	select {
 	case s.writeChan <- struct{}{}:
+	default:
+	}
+}
+
+func (s *sendStream) signalReliability(unreliable bool) {
+	select {
+	case s.unreliableChan <- unreliable:
 	default:
 	}
 }
