@@ -86,7 +86,7 @@ func (r *Body) myReadImpl(b []byte, resp *http.Response) (*quic.UnreliableReadRe
 		} else {
 			readResult, err = r.str.UnreliableRead(b)
 		}
-		r.bytesRemainingInFrame -= uint64(n)
+		r.bytesRemainingInFrame -= uint64(readResult.N)
 		return readResult, err
 	}
 }
