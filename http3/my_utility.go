@@ -1,9 +1,9 @@
 package http3
 
 import (
+	"context"
 	"io"
 	"net/http"
-	"context"
 
 	"github.com/lucas-clemente/quic-go"
 )
@@ -28,31 +28,39 @@ func copyBuffer(dst io.Writer, src io.Reader, buf []byte, rsp *http.Response) (i
 	lossRange := make([]quic.ByteRange, 0)
 	var written int64
 	var err error
+	body, ok := src.(*Body);
+	if !ok {
+		panic("src is permitted only to be http3 body")
+	}
 	for {
-		if body, ok := src.(*Body); ok {
-			result, er := body.MyRead(buf, rsp)
-			lossRange = append(lossRange, result.LossRange...)
-			nr := result.N
-			if nr > 0 {
-				nw, ew := dst.Write(buf[0:nr])
-				if nw > 0 {
-					written += int64(nw)
-				}
-				if ew != nil {
-					err = ew
-					break
-				}
-				if nr != nw {
-					err = io.ErrShortWrite
-					break
-				}
+		result, er := body.MyRead(buf, rsp)
+		if result == nil {
+			if er != io.EOF {
+				err = er
 			}
-			if er != nil {
-				if er != io.EOF {
-					err = er
-				}
+			break
+		}
+		nr := result.N
+		lossRange = append(lossRange, result.LossRange...)
+		if nr > 0 {
+			nw, ew := dst.Write(buf[0:nr])
+			if nw > 0 {
+				written += int64(nw)
+			}
+			if ew != nil {
+				err = ew
 				break
 			}
+			if nr != nw {
+				err = io.ErrShortWrite
+				break
+			}
+		}
+		if er != nil {
+			if er != io.EOF {
+				err = er
+			}
+			break
 		}
 	}
 	return written, lossRange, err

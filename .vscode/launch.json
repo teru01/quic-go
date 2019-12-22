@@ -14,6 +14,15 @@
             "args": ["-u", "https://localhost:6666/hoge.html"]
 				},
 				{
+					"name": "reliable_client",
+					"type": "go",
+					"request": "launch",
+					"mode": "auto",
+					"program": "/Users/mirai/works/go/src/github.com/lucas-clemente/quic-go/example/client/main.go",
+					"env": {},
+					"args": ["https://localhost:6666/hoge.html"]
+			},
+				{
 					"name": "remote",
 					"type": "go",
 					"request": "launch",
