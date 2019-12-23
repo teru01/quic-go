@@ -81,5 +81,3 @@ func calcValidBytes(n int64, byteRange []quic.ByteRange) int64 {
 	}
 	return n
 }
-
-

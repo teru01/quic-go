@@ -18,7 +18,7 @@ type framer interface {
 }
 
 type ExtendedStream struct {
-	id protocol.StreamID
+	id         protocol.StreamID
 	unreliable bool
 }
 
@@ -130,9 +130,9 @@ func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.
 		// account for the smaller size of the last STREAM frame
 		switch v := lastFrame.Frame.(type) {
 		case *wire.StreamFrame:
-				v.DataLenPresent = false
+			v.DataLenPresent = false
 		case *wire.UnreliableStreamFrame:
-				v.DataLenPresent = false
+			v.DataLenPresent = false
 		}
 		length += lastFrame.Length(f.version) - lastFrameLen
 	}

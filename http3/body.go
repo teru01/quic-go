@@ -57,7 +57,7 @@ func (r *Body) myReadImpl(b []byte, resp *http.Response) (*quic.UnreliableReadRe
 				continue
 			case *dataFrame:
 				r.bytesRemainingInFrame = f.Length
-				fmt.Println("VIDEO: readImpl HTTP dataframe len in frameheader: ", f.Length)
+
 				break parseLoop
 			default:
 				r.onFrameError()

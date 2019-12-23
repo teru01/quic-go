@@ -19,7 +19,7 @@ type byteReaderImpl struct{ io.Reader }
 
 func (br *byteReaderImpl) ReadByte() (byte, error) {
 	b := make([]byte, 1)
-	fmt.Println("VIDEO: ReadByte start")
+
 	if _, err := br.Reader.Read(b); err != nil {
 		return 0, err
 	}
@@ -35,7 +35,7 @@ func parseNextFrame(b io.Reader) (frame, error) {
 	}
 	t, err := utils.ReadVarInt(br)
 	if err != nil {
-		fmt.Println("VIDEO: cannot read type")
+
 		return nil, err
 	}
 	l, err := utils.ReadVarInt(br)

@@ -2,7 +2,6 @@ package quic
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
@@ -192,12 +191,12 @@ func (s *frameSorter) ForcePop() (protocol.ByteCount, []byte, func(), bool /* tr
 			break
 		}
 		if s.readPos >= s.maxOffset {
-			fmt.Println("VIDEO: readpos exceed", s.readPos)
+
 			break
 		}
 		lossByte++
 	}
-	fmt.Println("VIDEO: find fragment: readPos: ", s.readPos)
+
 	if lossByte > 0 {
 		padding := make([]byte, lossByte)
 		for i := 0; i < int(lossByte); i++ {

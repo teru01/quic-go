@@ -246,9 +246,6 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 	}
 
 	stFrame := f.(wire.StreamFrameInterface) // 必ず成功
-	_, unreliable := stFrame.(*wire.UnreliableStreamFrame)
-
-	fmt.Printf("VIDEO: send_stream.go: currentDataUnreliable: %v len: %v\n", unreliable, stFrame.GetDataLen())
 
 	// FINbitじゃないUnreliableFrame
 	if <-s.unreliableChan && !f.GetFinBit() {
@@ -256,7 +253,7 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: func(f wire.Frame) {}}, hasMoreData
 	}
 	if s.unreliable && stFrame.GetFinBit() {
-		fmt.Println("VIDEO: send_stream.go: send fin reliably")
+
 	}
 	s.unreliableMustAckedNum++ // 必ずACKされないといけないフレーム数
 	return &ackhandler.Frame{Frame: f, OnLost: s.queueRetransmission, OnAcked: s.frameAcked}, hasMoreData
@@ -339,7 +336,7 @@ func (s *sendStream) popNewStreamFrame(f *wire.StreamFrame, maxBytes protocol.By
 
 func (s *sendStream) maybeGetRetransmission(maxBytes protocol.ByteCount) (wire.StreamFrameInterface, bool /* has more retransmissions */) {
 	f := s.retransmissionQueue[0]
-	fmt.Println("VIDEO: retransmission len: ", f.DataLen())
+
 	newFrame, needsSplit := f.MaybeSplitOffFrame(maxBytes, s.version)
 	if needsSplit {
 		return newFrame, true
@@ -417,7 +414,7 @@ func (s *sendStream) isNewlyCompleted() bool {
 	if s.unreliable {
 		completed = (s.finSent || s.canceledWrite) && s.unreliableMustAckedNum == 0 && len(s.retransmissionQueue) == 0 //ackを受け取った時にfinsentを送信した後
 		if completed {
-			fmt.Println("VIDEO: send_stream.go: unreliable stream received ack of fin frame")
+
 		}
 	} else {
 		completed = (s.finSent || s.canceledWrite) && s.numOutstandingFrames == 0 && len(s.retransmissionQueue) == 0
@@ -449,7 +446,7 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 
 		s.sender.onHasStreamData(s.streamID)
 		if sf.FinBit {
-			fmt.Println("VIDEO: retransmit FIN STREAM")
+
 		}
 	case *wire.UnreliableStreamFrame:
 		sf.DataLenPresent = true
@@ -464,7 +461,7 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 
 		s.sender.onHasStreamData(s.streamID)
 		if sf.FinBit {
-			fmt.Println("VIDEO: retransmit FIN STREAM")
+
 		}
 	}
 }

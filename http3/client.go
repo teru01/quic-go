@@ -223,7 +223,6 @@ func (c *client) doRequest(
 		return nil, newStreamError(errorFrameError, fmt.Errorf("HEADERS frame too large: %d bytes (max: %d)", hf.Length, c.maxHeaderBytes()))
 	}
 	headerBlock := make([]byte, hf.Length)
-	fmt.Println("client: hf.length: ", hf.Length)
 	if _, err := io.ReadFull(str, headerBlock); err != nil {
 		return nil, newStreamError(errorRequestIncomplete, err) //ヘッダーフレーム分のデータが読み込めなかった場合に起こる
 	}

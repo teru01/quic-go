@@ -28,7 +28,7 @@ func copyBuffer(dst io.Writer, src io.Reader, buf []byte, rsp *http.Response) (i
 	lossRange := make([]quic.ByteRange, 0)
 	var written int64
 	var err error
-	body, ok := src.(*Body);
+	body, ok := src.(*Body)
 	if !ok {
 		panic("src is permitted only to be http3 body")
 	}
