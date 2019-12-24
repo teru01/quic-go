@@ -46,8 +46,13 @@ func main() {
 		url = "https://localhost:6666/hoge.html"
 	}
 
-	// reqにContextで渡す
-	rsp, err := http3.GetWithReliability(hclient, url, *unreliable)
+	for q := 0; q < 10; q++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fmt.Printf("##################### %v ##################3#\n", q)
+			// reqにContextで渡す
+			rsp, err := http3.GetWithReliability(hclient, url, *unreliable)
 
 	if err != nil {
 		panic(err)
@@ -58,21 +63,23 @@ func main() {
 	vbuf := &bytes.Buffer{}
 	n, lossRange, err := http3.Copy(vbuf, body, rsp)
 
-	// lossRange, err := body.MyRead(buffer, rsp)
-	fmt.Println("recv Bytes: ", n)
-	fmt.Println("lossRange: ", lossRange)
-	validBytes := calcValidBytes(n, lossRange)
-	fmt.Println("validBytes: ", validBytes)
-	fmt.Println("loss ratio: ", float64(n-validBytes)/float64(n))
-	// _, err = io.Copy(body, rsp.Body) // ここでrsp.Body.Read()が呼ばれて、初めてバイトストリームからの読み出し
-	if err != nil && err != io.EOF {
-		panic(err)
+			// lossRange, err := body.MyRead(buffer, rsp)
+			fmt.Println("recv Bytes: ", n)
+			fmt.Println("lossRange: ", lossRange)
+			validBytes := calcValidBytes(n, lossRange)
+			fmt.Println("validBytes: ", validBytes)
+			fmt.Println("loss ratio: ", float64(n-validBytes)/float64(n))
+			// _, err = io.Copy(body, rsp.Body) // ここでrsp.Body.Read()が呼ばれて、初めてバイトストリームからの読み出し
+			if err != nil && err != io.EOF {
+				panic(err)
+			}
+			// err = ioutil.WriteFile("movie.svc", vbuf.Bytes(), 0644)
+			if err != nil {
+				panic(err)
+			}
+		}()
 	}
-	err = ioutil.WriteFile("movie.svc", vbuf.Bytes(), 0644)
-	if err != nil {
-		panic(err)
-	}
-
+	wg.Wait()
 }
 
 func calcValidBytes(n int64, byteRange []quic.ByteRange) int64 {

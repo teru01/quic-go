@@ -449,6 +449,9 @@ func (s *receiveStream) handleStreamFrame(frame wire.StreamFrameInterface) error
 }
 
 func (s *receiveStream) handleStreamFrameImpl(frame wire.StreamFrameInterface) (bool /* completed */, error) {
+	if frame.GetFinBit() {
+		s.signalFinRead()
+	}
 	maxOffset := frame.GetOffset() + frame.GetDataLen()
 	if err := s.flowController.UpdateHighestReceived(maxOffset, frame.GetFinBit()); err != nil {
 		return false, err
@@ -469,7 +472,6 @@ func (s *receiveStream) handleStreamFrameImpl(frame wire.StreamFrameInterface) (
 
 	if frame.GetFinBit() {
 		s.frameQueue.setMaxOffset(frame.GetOffset())
-		s.signalFinRead()
 	}
 	if s.StreamID() == 0 { // VIDEO: client initiated bidi stream
 
