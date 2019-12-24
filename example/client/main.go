@@ -47,7 +47,7 @@ func main() {
 	}
 	wg := &sync.WaitGroup{}
 
-	for q := 0; q < 100; q++ {
+	for q := 0; q < 10; q++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -79,8 +79,8 @@ func main() {
 				panic(err)
 			}
 		}()
-		wg.Wait()
 	}
+	wg.Wait()
 }
 
 func calcValidBytes(n int64, byteRange []quic.ByteRange) int64 {
