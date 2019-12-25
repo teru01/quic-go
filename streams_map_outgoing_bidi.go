@@ -6,7 +6,6 @@ package quic
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
@@ -26,14 +25,14 @@ type outgoingBidiStreamsMap struct {
 	maxStream   protocol.StreamNum // the maximum stream ID we're allowed to open
 	blockedSent bool               // was a STREAMS_BLOCKED sent for the current maxStream
 
-	newStream            func(protocol.StreamNum, bool) streamI
+	newStream            func(protocol.StreamNum) streamI
 	queueStreamIDBlocked func(*wire.StreamsBlockedFrame)
 
 	closeErr error
 }
 
 func newOutgoingBidiStreamsMap(
-	newStream func(protocol.StreamNum, bool) streamI,
+	newStream func(protocol.StreamNum) streamI,
 	queueControlFrame func(wire.Frame),
 ) *outgoingBidiStreamsMap {
 	return &outgoingBidiStreamsMap{
@@ -63,15 +62,9 @@ func (m *outgoingBidiStreamsMap) OpenStream() (streamI, error) {
 }
 
 func (m *outgoingBidiStreamsMap) OpenStreamSync(ctx context.Context) (streamI, error) {
-	const UnreliableContextKey string = "unreliable_key"
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	var unreliable bool
-	var ok bool
-	if unreliable, ok = ctx.Value(UnreliableContextKey).(bool); !ok {
-		return nil, fmt.Errorf("unreliable key is not bool")
-	}
 	if m.closeErr != nil {
 		return nil, m.closeErr
 	}
@@ -81,9 +74,6 @@ func (m *outgoingBidiStreamsMap) OpenStreamSync(ctx context.Context) (streamI, e
 	}
 
 	if len(m.openQueue) == 0 && m.nextStream <= m.maxStream {
-		if unreliable {
-			return m.openUnreliableStream(), nil
-		}
 		return m.openStream(), nil
 	}
 
@@ -114,27 +104,15 @@ func (m *outgoingBidiStreamsMap) OpenStreamSync(ctx context.Context) (streamI, e
 			// no stream available. Continue waiting
 			continue
 		}
-		var str streamI
-		if unreliable {
-			str = m.openUnreliableStream()
-		} else {
-			str = m.openStream()
-		}
+		str := m.openStream()
 		delete(m.openQueue, queuePos)
 		m.unblockOpenSync()
 		return str, nil
 	}
 }
 
-func (m *outgoingBidiStreamsMap) openUnreliableStream() streamI {
-	s := m.newStream(m.nextStream, true)
-	m.streams[m.nextStream] = s
-	m.nextStream++
-	return s
-}
-
 func (m *outgoingBidiStreamsMap) openStream() streamI {
-	s := m.newStream(m.nextStream, false)
+	s := m.newStream(m.nextStream)
 	m.streams[m.nextStream] = s
 	m.nextStream++
 	return s

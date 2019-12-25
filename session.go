@@ -28,13 +28,13 @@ type unpacker interface {
 }
 
 type streamGetter interface {
-	GetOrOpenReceiveStream(protocol.StreamID, bool) (receiveStreamI, error)
-	GetOrOpenSendStream(protocol.StreamID, bool) (sendStreamI, error)
+	GetOrOpenReceiveStream(protocol.StreamID) (receiveStreamI, error)
+	GetOrOpenSendStream(protocol.StreamID) (sendStreamI, error)
 }
 
 type streamManager interface {
-	GetOrOpenSendStream(protocol.StreamID, bool) (sendStreamI, error)
-	GetOrOpenReceiveStream(protocol.StreamID, bool) (receiveStreamI, error)
+	GetOrOpenSendStream(protocol.StreamID) (sendStreamI, error)
+	GetOrOpenReceiveStream(protocol.StreamID) (receiveStreamI, error)
 	OpenStream() (Stream, error)
 	OpenUniStream() (SendStream, error)
 	OpenStreamSync(context.Context) (Stream, error)
@@ -183,8 +183,6 @@ type session struct {
 
 	logID  string
 	logger utils.Logger
-
-	unreliableMap map[protocol.StreamID]bool
 }
 
 var _ Session = &session{}
@@ -215,7 +213,6 @@ var newSession = func(
 		handshakeCompleteChan: make(chan struct{}),
 		logger:                logger,
 		version:               v,
-		unreliableMap:         make(map[protocol.StreamID]bool),
 	}
 	if origDestConnID != nil {
 		s.logID = origDestConnID.String()
@@ -322,7 +319,6 @@ var newClientSession = func(
 		logger:                logger,
 		initialVersion:        initialVersion,
 		version:               v,
-		unreliableMap:         make(map[protocol.StreamID]bool),
 	}
 	s.connIDManager = newConnIDManager(
 		destConnID,
@@ -420,7 +416,6 @@ func (s *session) preSetup() {
 		s.logger,
 	)
 	s.earlySessionReadyChan = make(chan struct{})
-	// フロー制御器を渡す
 	s.streamsMap = newStreamsMap(
 		s,
 		s.newFlowController,
@@ -473,6 +468,7 @@ func (s *session) run() error {
 	}
 
 	var closeErr closeError
+
 runLoop:
 	for {
 		// Close immediately if requested
@@ -898,15 +894,12 @@ func (s *session) handleCryptoFrame(frame *wire.CryptoFrame, encLevel protocol.E
 	return nil
 }
 
+
 func (s *session) handleStreamFrame(frame wire.StreamFrameInterface) error {
 	var str receiveStreamI
 	var err error
-	switch frame.(type) {
-	case *wire.StreamFrame:
-		str, err = s.streamsMap.GetOrOpenReceiveStream(frame.GetStreamId(), false)
-	case *wire.UnreliableStreamFrame:
-		str, err = s.streamsMap.GetOrOpenReceiveStream(frame.GetStreamId(), true)
-	}
+	str, err = s.streamsMap.GetOrOpenReceiveStream(frame.GetStreamId())
+
 	if err != nil {
 		return err
 	}
@@ -923,7 +916,7 @@ func (s *session) handleMaxDataFrame(frame *wire.MaxDataFrame) {
 }
 
 func (s *session) handleMaxStreamDataFrame(frame *wire.MaxStreamDataFrame) error {
-	str, err := s.streamsMap.GetOrOpenSendStream(frame.StreamID, false) // すでに開かれたストリームなのでunreliableの指定は影響しないはず
+	str, err := s.streamsMap.GetOrOpenSendStream(frame.StreamID)
 	if err != nil {
 		return err
 	}
@@ -940,7 +933,7 @@ func (s *session) handleMaxStreamsFrame(frame *wire.MaxStreamsFrame) error {
 }
 
 func (s *session) handleResetStreamFrame(frame *wire.ResetStreamFrame) error {
-	str, err := s.streamsMap.GetOrOpenReceiveStream(frame.StreamID, false) // TODO: 考慮
+	str, err := s.streamsMap.GetOrOpenReceiveStream(frame.StreamID)
 	if err != nil {
 		return err
 	}
@@ -952,7 +945,7 @@ func (s *session) handleResetStreamFrame(frame *wire.ResetStreamFrame) error {
 }
 
 func (s *session) handleStopSendingFrame(frame *wire.StopSendingFrame) error {
-	str, err := s.streamsMap.GetOrOpenSendStream(frame.StreamID, false) // すでに開かれたストリームなのでunreliableの指定は影響しないはず
+	str, err := s.streamsMap.GetOrOpenSendStream(frame.StreamID)
 	if err != nil {
 		return err
 	}
@@ -1433,22 +1426,6 @@ func (s *session) queueControlFrame(f wire.Frame) {
 	s.scheduleSending()
 }
 
-func (s *session) setUnreliableMap(id protocol.StreamID, unreliable bool) {
-	var m sync.Mutex
-	m.Lock()
-	s.unreliableMap[id] = unreliable
-	m.Unlock()
-}
-
-func (s *session) isUnreliableStream(id protocol.StreamID) bool {
-	unreliable, ok := s.unreliableMap[id]
-	if !ok {
-		panic("can't find entry")
-	} else {
-		return unreliable
-	}
-}
-
 func (s *session) onHasStreamWindowUpdate(id protocol.StreamID) {
 	s.windowUpdateQueue.AddStream(id)
 	s.scheduleSending()
@@ -1460,8 +1437,7 @@ func (s *session) onHasConnectionWindowUpdate() {
 }
 
 func (s *session) onHasStreamData(id protocol.StreamID) {
-	unreliable := s.unreliableMap[id]
-	s.framer.AddActiveStream(id, unreliable)
+	s.framer.AddActiveStream(id)
 	s.scheduleSending()
 }
 

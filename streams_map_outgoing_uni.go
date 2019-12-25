@@ -6,7 +6,6 @@ package quic
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
@@ -26,14 +25,14 @@ type outgoingUniStreamsMap struct {
 	maxStream   protocol.StreamNum // the maximum stream ID we're allowed to open
 	blockedSent bool               // was a STREAMS_BLOCKED sent for the current maxStream
 
-	newStream            func(protocol.StreamNum, bool) sendStreamI
+	newStream            func(protocol.StreamNum) sendStreamI
 	queueStreamIDBlocked func(*wire.StreamsBlockedFrame)
 
 	closeErr error
 }
 
 func newOutgoingUniStreamsMap(
-	newStream func(protocol.StreamNum, bool) sendStreamI,
+	newStream func(protocol.StreamNum) sendStreamI,
 	queueControlFrame func(wire.Frame),
 ) *outgoingUniStreamsMap {
 	return &outgoingUniStreamsMap{
@@ -63,16 +62,8 @@ func (m *outgoingUniStreamsMap) OpenStream() (sendStreamI, error) {
 }
 
 func (m *outgoingUniStreamsMap) OpenStreamSync(ctx context.Context) (sendStreamI, error) {
-	const UnreliableContextKey string = "unreliable_key"
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-
-	var unreliable bool
-	if unreliable, ok := ctx.Value(UnreliableContextKey).(bool); ok {
-		unreliable = bool(unreliable)
-	} else {
-		return nil, fmt.Errorf("unreliable key is not bool")
-	}
 
 	if m.closeErr != nil {
 		return nil, m.closeErr
@@ -83,11 +74,7 @@ func (m *outgoingUniStreamsMap) OpenStreamSync(ctx context.Context) (sendStreamI
 	}
 
 	if len(m.openQueue) == 0 && m.nextStream <= m.maxStream {
-		if unreliable {
-			return m.openUnreliableStream(), nil
-		} else {
-			return m.openStream(), nil
-		}
+		return m.openStream(), nil
 	}
 
 	waitChan := make(chan struct{}, 1)
@@ -117,27 +104,15 @@ func (m *outgoingUniStreamsMap) OpenStreamSync(ctx context.Context) (sendStreamI
 			// no stream available. Continue waiting
 			continue
 		}
-		var str sendStreamI
-		if unreliable {
-			str = m.openUnreliableStream()
-		} else {
-			str = m.openStream()
-		}
+		str := m.openStream()
 		delete(m.openQueue, queuePos)
 		m.unblockOpenSync()
 		return str, nil
 	}
 }
 
-func (m *outgoingUniStreamsMap) openUnreliableStream() sendStreamI {
-	s := m.newStream(m.nextStream, true)
-	m.streams[m.nextStream] = s
-	m.nextStream++
-	return s
-}
-
 func (m *outgoingUniStreamsMap) openStream() sendStreamI {
-	s := m.newStream(m.nextStream, false)
+	s := m.newStream(m.nextStream)
 	m.streams[m.nextStream] = s
 	m.nextStream++
 	return s

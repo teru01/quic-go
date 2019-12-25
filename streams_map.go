@@ -71,31 +71,30 @@ func newStreamsMap(
 		newFlowController: newFlowController,
 		sender:            sender,
 	}
-	// ストリームの生成、フロー制御オブジェクトもここで渡す
 	m.outgoingBidiStreams = newOutgoingBidiStreamsMap(
-		func(num protocol.StreamNum, unreliable bool) streamI {
+		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, perspective)
-			return newStream(id, m.sender, m.newFlowController(id), version, unreliable)
+			return newStream(id, m.sender, m.newFlowController(id), version)
 		},
 		sender.queueControlFrame,
 	)
 	m.incomingBidiStreams = newIncomingBidiStreamsMap(
-		func(num protocol.StreamNum, unreliable bool) streamI {
+		func(num protocol.StreamNum) streamI {
 			id := num.StreamID(protocol.StreamTypeBidi, perspective.Opposite())
-			return newStream(id, m.sender, m.newFlowController(id), version, unreliable)
+			return newStream(id, m.sender, m.newFlowController(id), version)
 		},
 		maxIncomingBidiStreams,
 		sender.queueControlFrame,
 	)
 	m.outgoingUniStreams = newOutgoingUniStreamsMap(
-		func(num protocol.StreamNum, unreliable bool) sendStreamI {
+		func(num protocol.StreamNum) sendStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, perspective)
-			return newSendStream(id, m.sender, m.newFlowController(id), version, unreliable)
+			return newSendStream(id, m.sender, m.newFlowController(id), version)
 		},
 		sender.queueControlFrame,
 	)
 	m.incomingUniStreams = newIncomingUniStreamsMap(
-		func(num protocol.StreamNum, unreliable bool) receiveStreamI {
+		func(num protocol.StreamNum) receiveStreamI {
 			id := num.StreamID(protocol.StreamTypeUni, perspective.Opposite())
 			return newReceiveStream(id, m.sender, m.newFlowController(id), version)
 		},
@@ -152,15 +151,15 @@ func (m *streamsMap) DeleteStream(id protocol.StreamID) error {
 	panic("")
 }
 
-func (m *streamsMap) GetOrOpenReceiveStream(id protocol.StreamID, unreliable bool) (receiveStreamI, error) {
-	str, err := m.getOrOpenReceiveStream(id, unreliable)
+func (m *streamsMap) GetOrOpenReceiveStream(id protocol.StreamID) (receiveStreamI, error) {
+	str, err := m.getOrOpenReceiveStream(id)
 	if err != nil {
 		return nil, qerr.Error(qerr.StreamStateError, err.Error())
 	}
 	return str, nil
 }
 
-func (m *streamsMap) getOrOpenReceiveStream(id protocol.StreamID, unreliable bool) (receiveStreamI, error) {
+func (m *streamsMap) getOrOpenReceiveStream(id protocol.StreamID) (receiveStreamI, error) {
 	num := id.StreamNum()
 	switch id.Type() {
 	case protocol.StreamTypeUni:
@@ -168,7 +167,7 @@ func (m *streamsMap) getOrOpenReceiveStream(id protocol.StreamID, unreliable boo
 			// an outgoing unidirectional stream is a send stream, not a receive stream
 			return nil, fmt.Errorf("peer attempted to open receive stream %d", id)
 		}
-		str, err := m.incomingUniStreams.GetOrOpenStream(num, false)
+		str, err := m.incomingUniStreams.GetOrOpenStream(num)
 		return str, convertStreamError(err, protocol.StreamTypeUni, m.perspective)
 	case protocol.StreamTypeBidi:
 		var str receiveStreamI
@@ -176,22 +175,22 @@ func (m *streamsMap) getOrOpenReceiveStream(id protocol.StreamID, unreliable boo
 		if id.InitiatedBy() == m.perspective {
 			str, err = m.outgoingBidiStreams.GetStream(num)
 		} else {
-			str, err = m.incomingBidiStreams.GetOrOpenStream(num, unreliable)
+			str, err = m.incomingBidiStreams.GetOrOpenStream(num)
 		}
 		return str, convertStreamError(err, protocol.StreamTypeBidi, id.InitiatedBy())
 	}
 	panic("")
 }
 
-func (m *streamsMap) GetOrOpenSendStream(id protocol.StreamID, unreliable bool) (sendStreamI, error) {
-	str, err := m.getOrOpenSendStream(id, unreliable)
+func (m *streamsMap) GetOrOpenSendStream(id protocol.StreamID) (sendStreamI, error) {
+	str, err := m.getOrOpenSendStream(id)
 	if err != nil {
 		return nil, qerr.Error(qerr.StreamStateError, err.Error())
 	}
 	return str, nil
 }
 
-func (m *streamsMap) getOrOpenSendStream(id protocol.StreamID, unreliable bool) (sendStreamI, error) {
+func (m *streamsMap) getOrOpenSendStream(id protocol.StreamID) (sendStreamI, error) {
 	num := id.StreamNum()
 	switch id.Type() {
 	case protocol.StreamTypeUni:
@@ -207,7 +206,7 @@ func (m *streamsMap) getOrOpenSendStream(id protocol.StreamID, unreliable bool) 
 		if id.InitiatedBy() == m.perspective {
 			str, err = m.outgoingBidiStreams.GetStream(num)
 		} else {
-			str, err = m.incomingBidiStreams.GetOrOpenStream(num, unreliable)
+			str, err = m.incomingBidiStreams.GetOrOpenStream(num)
 		}
 		return str, convertStreamError(err, protocol.StreamTypeBidi, id.InitiatedBy())
 	}

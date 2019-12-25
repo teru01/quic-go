@@ -2,7 +2,6 @@ package quic
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
@@ -24,14 +23,14 @@ type outgoingItemsMap struct {
 	maxStream   protocol.StreamNum // the maximum stream ID we're allowed to open
 	blockedSent bool               // was a STREAMS_BLOCKED sent for the current maxStream
 
-	newStream            func(protocol.StreamNum, bool) item
+	newStream            func(protocol.StreamNum) item
 	queueStreamIDBlocked func(*wire.StreamsBlockedFrame)
 
 	closeErr error
 }
 
 func newOutgoingItemsMap(
-	newStream func(protocol.StreamNum, bool) item,
+	newStream func(protocol.StreamNum) item,
 	queueControlFrame func(wire.Frame),
 ) *outgoingItemsMap {
 	return &outgoingItemsMap{
@@ -61,16 +60,8 @@ func (m *outgoingItemsMap) OpenStream() (item, error) {
 }
 
 func (m *outgoingItemsMap) OpenStreamSync(ctx context.Context) (item, error) {
-	const UnreliableContextKey string = "unreliable_key"
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-
-	var unreliable bool
-	if unreliable, ok := ctx.Value(UnreliableContextKey).(bool); ok {
-		unreliable = bool(unreliable)
-	} else {
-		return nil, fmt.Errorf("unreliable key is not bool")
-	}
 
 	if m.closeErr != nil {
 		return nil, m.closeErr
@@ -81,11 +72,7 @@ func (m *outgoingItemsMap) OpenStreamSync(ctx context.Context) (item, error) {
 	}
 
 	if len(m.openQueue) == 0 && m.nextStream <= m.maxStream {
-		if unreliable {
-			return m.openUnreliableStream(), nil
-		} else {
-			return m.openStream(), nil
-		}
+		return m.openStream(), nil
 	}
 
 	waitChan := make(chan struct{}, 1)
@@ -115,27 +102,15 @@ func (m *outgoingItemsMap) OpenStreamSync(ctx context.Context) (item, error) {
 			// no stream available. Continue waiting
 			continue
 		}
-		var str item
-		if unreliable {
-			str = m.openUnreliableStream()
-		} else {
-			str = m.openStream()
-		}
+		str := m.openStream()
 		delete(m.openQueue, queuePos)
 		m.unblockOpenSync()
 		return str, nil
 	}
 }
 
-func (m *outgoingItemsMap) openUnreliableStream() item {
-	s := m.newStream(m.nextStream, true)
-	m.streams[m.nextStream] = s
-	m.nextStream++
-	return s
-}
-
 func (m *outgoingItemsMap) openStream() item {
-	s := m.newStream(m.nextStream, false)
+	s := m.newStream(m.nextStream)
 	m.streams[m.nextStream] = s
 	m.nextStream++
 	return s
