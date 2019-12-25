@@ -60,7 +60,6 @@ type sendStream struct {
 
 	version protocol.VersionNumber
 
-	unreliable bool
 }
 
 var _ SendStream = &sendStream{}
@@ -71,7 +70,6 @@ func newSendStream(
 	sender streamSender,
 	flowController flowcontrol.StreamFlowController,
 	version protocol.VersionNumber,
-	unreliable bool,
 ) *sendStream {
 	s := &sendStream{
 		streamID:                streamID,
@@ -81,7 +79,6 @@ func newSendStream(
 		writeChan:               make(chan struct{}, 1),
 		unreliableChan:          make(chan bool, 1),
 		version:                 version,
-		unreliable:              unreliable,
 	}
 	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
 	return s
@@ -253,8 +250,8 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 		fmt.Printf("VIDEO: send_stream.go: unreliably send")
 		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: func(f wire.Frame) {}}, hasMoreData
 	}
-	if s.unreliable && stFrame.GetFinBit() {
-
+	if stFrame.GetFinBit() {
+		fmt.Println("VIDEO: send_stream.go: send fin reliably")
 	}
 	s.unreliableMustAckedNum++ // 必ずACKされないといけないフレーム数
 	fmt.Printf("VIDEO: send_stream.go: reliably send")
@@ -413,14 +410,14 @@ func (s *sendStream) frameAcked(f wire.Frame) {
 
 func (s *sendStream) isNewlyCompleted() bool {
 	var completed bool
-	if s.unreliable {
-		completed = (s.finSent || s.canceledWrite) && s.unreliableMustAckedNum == 0 && len(s.retransmissionQueue) == 0 //ackを受け取った時にfinsentを送信した後
-		if completed {
-
-		}
-	} else {
-		completed = (s.finSent || s.canceledWrite) && s.numOutstandingFrames == 0 && len(s.retransmissionQueue) == 0
-	}
+	completed = (s.finSent || s.canceledWrite) && s.unreliableMustAckedNum == 0 && len(s.retransmissionQueue) == 0 //ackを受け取った時にfinsentを送信した後
+	// if s.unreliable {
+	// 	if completed {
+	// 		fmt.Println("VIDEO: send_stream.go: unreliable stream received ack of fin frame")
+	// 	}
+	// } else {
+	// 	completed = (s.finSent || s.canceledWrite) && s.numOutstandingFrames == 0 && len(s.retransmissionQueue) == 0
+	// }
 	if completed && !s.completed {
 		s.completed = true
 		return true

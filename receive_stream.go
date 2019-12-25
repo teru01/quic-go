@@ -479,12 +479,6 @@ func (s *receiveStream) handleStreamFrameImpl(frame wire.StreamFrameInterface) (
 
 		}
 	}
-	switch frame.(type) {
-	case *wire.StreamFrame:
-		s.sender.setUnreliableMap(s.StreamID(), false)
-	case *wire.UnreliableStreamFrame:
-		s.sender.setUnreliableMap(s.StreamID(), true)
-	}
 	s.signalRead()
 	return false, nil
 }

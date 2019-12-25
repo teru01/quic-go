@@ -26,7 +26,7 @@ type incomingBidiStreamsMap struct {
 	maxStream          protocol.StreamNum // the highest stream that the peer is allowed to open
 	maxNumStreams      uint64             // maximum number of streams
 
-	newStream        func(protocol.StreamNum, bool) streamI
+	newStream        func(protocol.StreamNum) streamI
 	queueMaxStreamID func(*wire.MaxStreamsFrame)
 	// streamNumToID    func(protocol.StreamNum) protocol.StreamID // only used for generating errors
 
@@ -34,7 +34,7 @@ type incomingBidiStreamsMap struct {
 }
 
 func newIncomingBidiStreamsMap(
-	newStream func(protocol.StreamNum, bool) streamI,
+	newStream func(protocol.StreamNum) streamI,
 	maxStreams uint64,
 	queueControlFrame func(wire.Frame),
 ) *incomingBidiStreamsMap {
@@ -88,7 +88,7 @@ func (m *incomingBidiStreamsMap) AcceptStream(ctx context.Context) (streamI, err
 	return str, nil
 }
 
-func (m *incomingBidiStreamsMap) GetOrOpenStream(num protocol.StreamNum, unreliable bool) (streamI, error) {
+func (m *incomingBidiStreamsMap) GetOrOpenStream(num protocol.StreamNum) (streamI, error) {
 	m.mutex.RLock()
 	if num > m.maxStream {
 		m.mutex.RUnlock()
@@ -116,7 +116,7 @@ func (m *incomingBidiStreamsMap) GetOrOpenStream(num protocol.StreamNum, unrelia
 	// * maxStream can only increase, so if the id was valid before, it definitely is valid now
 	// * highestStream is only modified by this function
 	for newNum := m.nextStreamToOpen; newNum <= num; newNum++ {
-		m.streams[newNum] = m.newStream(newNum, unreliable)
+		m.streams[newNum] = m.newStream(newNum)
 		select {
 		case m.newStreamChan <- struct{}{}:
 		default:

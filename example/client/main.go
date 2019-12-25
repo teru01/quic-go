@@ -46,7 +46,7 @@ func main() {
 		url = "https://localhost:6666/hoge.html"
 	}
 
-	for q := 0; q < 10; q++ {
+	for q := 0; q < 1; q++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
