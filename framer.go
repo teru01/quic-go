@@ -2,6 +2,7 @@ package quic
 
 import (
 	"sync"
+	"fmt"
 
 	"github.com/lucas-clemente/quic-go/internal/ackhandler"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
@@ -130,5 +131,6 @@ func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.
 		}
 		length += lastFrame.Length(f.version) - lastFrameLen
 	}
+	fmt.Println("fin appendStream")
 	return frames, length
 }

@@ -159,6 +159,7 @@ func (s *sendStream) Write(p []byte) (int, error) {
 }
 
 func (s *sendStream) UnreliableWrite(p []byte) (int, error) {
+	defer fmt.Println("unreliableWrite fin")
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -250,7 +251,7 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 	// FINbitじゃないUnreliableFrame
 	if <-s.unreliableChan && !f.GetFinBit() {
 		// 再送を行わない
-		fmt.Printf("VIDEO: send_stream.go: unreliably send")
+		fmt.Println("VIDEO: send_stream.go: unreliably send")
 		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: func(f wire.Frame) {}}, hasMoreData
 	}
 	if stFrame.GetFinBit() {
@@ -395,6 +396,7 @@ func (s *sendStream) getDataForWriting(f *wire.StreamFrame, maxBytes protocol.By
 // }
 
 func (s *sendStream) frameAcked(f wire.Frame) {
+	fmt.Println("frame acked len: ", f.(wire.StreamFrameInterface).GetDataLen())
 	f.(wire.StreamFrameInterface).PutBack()
 
 	s.mutex.Lock()
@@ -412,6 +414,7 @@ func (s *sendStream) frameAcked(f wire.Frame) {
 }
 
 func (s *sendStream) isNewlyCompleted() bool {
+	fmt.Println("unreliableMustAckedNum: ", s.unreliableMustAckedNum)
 	var completed bool
 	completed = (s.finSent || s.canceledWrite) && s.unreliableMustAckedNum == 0 && len(s.retransmissionQueue) == 0 //ackを受け取った時にfinsentを送信した後
 	// if s.unreliable {
@@ -469,6 +472,7 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 }
 
 func (s *sendStream) Close() error {
+	fmt.Println("sendstream Close called")
 	s.mutex.Lock()
 	if s.canceledWrite {
 		s.mutex.Unlock()

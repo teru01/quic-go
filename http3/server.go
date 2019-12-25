@@ -247,9 +247,12 @@ func (s *Server) handleRequest(str quic.Stream, decoder *qpack.Decoder, onFrameE
 
 	req = req.WithContext(str.Context())
 	responseWriter := newResponseWriter(str, s.logger)
+	var tmp sync.Mutex
+	tmp.Lock()
 	if req.Header.Get("Transport-Response-Reliability") != "" {
 		responseWriter.Header().Add("Transport-Response-Reliability", "unreliable")
 	}
+	tmp.Unlock()
 	handler := s.Handler
 	if handler == nil {
 		handler = http.DefaultServeMux
@@ -269,10 +272,13 @@ func (s *Server) handleRequest(str quic.Stream, decoder *qpack.Decoder, onFrameE
 		}()
 		handler.ServeHTTP(responseWriter, req)
 		// read the eof
+		fmt.Println("VIDEO: finished handling")
+		
 		if _, err = str.Read([]byte{0}); err == io.EOF {
 			readEOF = true
 		}
 	}()
+	fmt.Println("VIDEO: finished serving")
 
 	if panicked {
 		responseWriter.WriteHeader(500)

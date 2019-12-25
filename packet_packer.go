@@ -586,6 +586,7 @@ func (p *packetPacker) writeAndSealPacketWithPadding(
 	if num != header.PacketNumber {
 		return nil, errors.New("packetPacker BUG: Peeked and Popped packet numbers do not match")
 	}
+
 	return &packedPacket{
 		header: header,
 		raw:    raw,

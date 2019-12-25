@@ -39,6 +39,15 @@
 					"program": "/Users/mirai/works/go/src/github.com/lucas-clemente/quic-go/example/main.go",
 					"env": {},
 					"args": []
-			}
+			},
+			{
+				"name": "serveremote",
+				"type": "go",
+				"request": "launch",
+				"mode": "auto",
+				"program": "/home/ono/go/src/github.com/teru01/quic-go/example/main.go",
+				"env": {},
+				"args": []
+		}
     ]
 }

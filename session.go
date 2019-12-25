@@ -471,9 +471,11 @@ func (s *session) run() error {
 
 runLoop:
 	for {
+
 		// Close immediately if requested
 		select {
 		case closeErr = <-s.closeChan:
+			fmt.Println("1 closeChan")
 			break runLoop
 		case <-s.handshakeCompleteChan:
 			s.handleHandshakeComplete()
@@ -481,18 +483,24 @@ runLoop:
 		}
 
 		s.maybeResetTimer()
+		fmt.Println("runloop beforemid")
 
 		select {
 		case closeErr = <-s.closeChan:
+			fmt.Println("2 closeChan")
 			break runLoop
 		case <-s.timer.Chan():
 			s.timer.SetRead()
+			fmt.Println("timer.chan")
 			// We do all the interesting stuff after the switch statement, so
 			// nothing to see here.
 		case <-s.sendingScheduled:
+			fmt.Println("sending scheduled")
+
 			// We do all the interesting stuff after the switch statement, so
 			// nothing to see here.
 		case p := <-s.receivedPackets:
+			fmt.Println("recved packets")
 			// Only reset the timers if this packet was actually processed.
 			// This avoids modifying any state when handling undecryptable packets,
 			// which could be injected by an attacker.
@@ -500,9 +508,10 @@ runLoop:
 				continue
 			}
 		case <-s.handshakeCompleteChan:
+			fmt.Println("handshake compl")
 			s.handleHandshakeComplete()
 		}
-
+		fmt.Println("runloop mid")
 		now := time.Now()
 		if timeout := s.sentPacketHandler.GetLossDetectionTimeout(); !timeout.IsZero() && timeout.Before(now) {
 			// This could cause packets to be retransmitted.
@@ -529,6 +538,8 @@ runLoop:
 			continue
 		}
 
+		fmt.Println("runloop aftermid")
+
 		if !s.handshakeComplete && now.Sub(s.sessionCreationTime) >= s.config.HandshakeTimeout {
 			s.destroyImpl(qerr.TimeoutError("Handshake did not complete in time"))
 			continue
@@ -538,9 +549,13 @@ runLoop:
 			continue
 		}
 
-		if err := s.sendPackets(); err != nil {
+		err := s.sendPackets()
+		if err != nil {
+			fmt.Println("closing local")
 			s.closeLocal(err)
+			fmt.Println("closed local")
 		}
+		fmt.Println("err: ", err)
 	}
 
 	s.handleCloseError(closeErr)
@@ -1186,7 +1201,10 @@ sendLoop:
 			}
 			numPacketsSent++
 		case ackhandler.SendAny:
+			fmt.Println("sendany")
 			sentPacket, err := s.sendPacket()
+			fmt.Println("sendpacket fin")
+
 			if err != nil {
 				return err
 			}
@@ -1207,6 +1225,7 @@ sendLoop:
 	if numPacketsSent == numPackets {
 		s.pacingDeadline = s.sentPacketHandler.TimeUntilSend()
 	}
+	fmt.Println("sendpackets fin")
 	return nil
 }
 
