@@ -247,14 +247,11 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 	// FINbitじゃないUnreliableFrame
 	if <-s.unreliableChan && !f.GetFinBit() {
 		// 再送を行わない
-		fmt.Printf("VIDEO: send_stream.go: unreliably send")
 		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: func(f wire.Frame) {}}, hasMoreData
 	}
 	if stFrame.GetFinBit() {
-		fmt.Println("VIDEO: send_stream.go: send fin reliably")
 	}
 	s.unreliableMustAckedNum++ // 必ずACKされないといけないフレーム数
-	fmt.Printf("VIDEO: send_stream.go: reliably send")
 	return &ackhandler.Frame{Frame: f, OnLost: s.queueRetransmission, OnAcked: s.frameAcked}, hasMoreData
 }
 

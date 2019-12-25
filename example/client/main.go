@@ -2,11 +2,12 @@ package main
 
 import (
 	"bytes"
+	"sync"
 	"crypto/tls"
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
+
 	"net/http"
 
 	"github.com/lucas-clemente/quic-go"
@@ -46,6 +47,7 @@ func main() {
 		url = "https://localhost:6666/hoge.html"
 	}
 
+	wg := &sync.WaitGroup{}
 	for q := 0; q < 1; q++ {
 		wg.Add(1)
 		go func() {
