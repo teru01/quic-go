@@ -822,10 +822,6 @@ func (s *session) handleFrame(f wire.Frame, pn protocol.PacketNumber, encLevel p
 	var err error
 	wire.LogFrame(s.logger, f, false)
 	switch frame := f.(type) {
-	default:
-		fmt.Printf("recv %T frame\n", frame)
-	}
-	switch frame := f.(type) {
 	case *wire.CryptoFrame:
 		err = s.handleCryptoFrame(frame, encLevel)
 	case *wire.StreamFrame:
@@ -897,7 +893,6 @@ func (s *session) handleCryptoFrame(frame *wire.CryptoFrame, encLevel protocol.E
 	}
 	return nil
 }
-
 
 func (s *session) handleStreamFrame(frame wire.StreamFrameInterface) error {
 	var str receiveStreamI
@@ -1270,7 +1265,7 @@ func (s *session) sendProbePacket(encLevel protocol.EncryptionLevel) error {
 }
 
 func (s *session) sendPacket() (bool, error) {
-	fmt.Println("sendPacket called")
+
 	if isBlocked, offset := s.connFlowController.IsNewlyBlocked(); isBlocked {
 		s.framer.QueueControlFrame(&wire.DataBlockedFrame{DataLimit: offset})
 	}

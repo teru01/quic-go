@@ -59,7 +59,6 @@ type sendStream struct {
 	flowController flowcontrol.StreamFlowController
 
 	version protocol.VersionNumber
-
 }
 
 var _ SendStream = &sendStream{}
@@ -410,7 +409,7 @@ func (s *sendStream) isNewlyCompleted() bool {
 	completed = (s.finSent || s.canceledWrite) && s.unreliableMustAckedNum == 0 && len(s.retransmissionQueue) == 0 //ackを受け取った時にfinsentを送信した後
 	// if s.unreliable {
 	// 	if completed {
-	// 		fmt.Println("VIDEO: send_stream.go: unreliable stream received ack of fin frame")
+	//
 	// 	}
 	// } else {
 	// 	completed = (s.finSent || s.canceledWrite) && s.numOutstandingFrames == 0 && len(s.retransmissionQueue) == 0
@@ -425,13 +424,13 @@ func (s *sendStream) isNewlyCompleted() bool {
 func (s *sendStream) queueRetransmission(f wire.Frame) {
 	// stFrame, ok := f.(wire.StreamFrameInterface)
 	// if s.unreliable &&
-	// fmt.Println("unreliable retransmission queueing")
+	//
 
 	switch sf := f.(type) {
 	case *wire.StreamFrame:
 		sf.DataLenPresent = true
 		s.mutex.Lock()
-		// fmt.Printf("add STREAM FRAME to retransmission queue id: %v\n", s.StreamID())
+		//
 		s.retransmissionQueue = append(s.retransmissionQueue, sf)
 		s.numOutstandingFrames--
 		s.unreliableMustAckedNum--
@@ -447,7 +446,7 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 	case *wire.UnreliableStreamFrame:
 		sf.DataLenPresent = true
 		s.mutex.Lock()
-		// fmt.Printf("add STREAM FRAME to retransmission queue id: %v\n", s.StreamID())
+		//
 		s.retransmissionQueue = append(s.retransmissionQueue, sf)
 		s.numOutstandingFrames--
 		if s.numOutstandingFrames < 0 || s.unreliableMustAckedNum < 0 {

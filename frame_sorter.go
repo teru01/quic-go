@@ -23,8 +23,8 @@ var errDuplicateStreamData = errors.New("duplicate stream data")
 
 func newFrameSorter() *frameSorter {
 	s := frameSorter{
-		gaps:  utils.NewByteIntervalList(),
-		queue: make(map[protocol.ByteCount]frameSorterEntry),
+		gaps:      utils.NewByteIntervalList(),
+		queue:     make(map[protocol.ByteCount]frameSorterEntry),
 		maxOffset: protocol.MaxByteCount,
 	}
 	s.gaps.PushFront(utils.ByteInterval{Start: 0, End: protocol.MaxByteCount})
@@ -186,7 +186,7 @@ func (s *frameSorter) ForcePop() (protocol.ByteCount, []byte, func(), bool /* tr
 	offset := s.readPos
 
 	for ; ; s.readPos++ {
-		// fmt.Println("VIDEO: forcepop: ", s.readPos)
+		//
 		_, ok := s.queue[s.readPos]
 		if ok {
 			break

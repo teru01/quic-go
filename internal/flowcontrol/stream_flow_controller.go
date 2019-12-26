@@ -90,7 +90,7 @@ func (c *streamFlowController) UpdateHighestReceived(offset protocol.ByteCount, 
 }
 
 func (c *streamFlowController) AddBytesRead(n protocol.ByteCount) {
-	fmt.Println("AddBytesRead")
+
 	c.baseFlowController.AddBytesRead(n)
 	c.maybeQueueWindowUpdate()
 	c.connection.AddBytesRead(n)
@@ -115,9 +115,9 @@ func (c *streamFlowController) maybeQueueWindowUpdate() {
 	c.mutex.Lock()
 	hasWindowUpdate := !c.receivedFinalOffset && c.hasWindowUpdate()
 	c.mutex.Unlock()
-	fmt.Println("maybeQueueWindowUpdate")
+
 	if hasWindowUpdate {
-		fmt.Println("QueueWindowUpdate")
+
 		c.queueWindowUpdate()
 	}
 }
