@@ -195,36 +195,24 @@ func (s *receiveStream) unreliableReadImpl(p []byte, result *UnreliableReadResul
 			if deadline.IsZero() {
 				fmt.Println("VIDEO: unreliableReadImpl: deadline zero") // 次のオフセットにフレームがセットされるのを待つ
 				select {
-				case <-s.enableForceDequeue:
-					fmt.Println("s.enableForceDequeue")
+				case <-s.readChan:
+					fmt.Println("VIDEO: unreliableReadImpl: s<-readChan")
 					s.forceDequeNextFrame(result)
-				default:
-					select {
-					case <-s.readChan:
-						fmt.Println("VIDEO: unreliableReadImpl: s<-readChan")
-					case <-s.finReadChan:
-						// FINが読まれたのでdequeueしてロスレンジを計算 null byte padding
-						fmt.Println("s.finReadChan")
-						s.forceDequeNextFrame(result)
-						s.signalFinRead()
-					}
+					// case <-s.finReadChan:
+					// 	// FINが読まれたのでdequeueしてロスレンジを計算 null byte padding
+					// 	fmt.Println("s.finReadChan")
+					// 	s.signalFinRead()
 				}
 			} else {
 				fmt.Println("VIDEO: unreliableReadImpl: deadline non zero")
 				select {
-				// forceDequeできるなら必ずする
-				case <-s.enableForceDequeue:
+				case <-s.readChan:
 					s.forceDequeNextFrame(result)
-				default:
-					select {
-					case <-s.readChan:
-					case <-s.finReadChan:
-						// FINが読まれたのでdequeueしてロスレンジを計算 null byte padding
-						s.forceDequeNextFrame(result)
-						s.signalFinRead()
-					case <-deadlineTimer.Chan():
-						deadlineTimer.SetRead()
-					}
+				// case <-s.finReadChan:
+				// 	// FINが読まれたのでdequeueしてロスレンジを計算 null byte padding
+				// 	s.signalFinRead()
+				case <-deadlineTimer.Chan():
+					deadlineTimer.SetRead()
 				}
 			}
 			s.mutex.Lock()
