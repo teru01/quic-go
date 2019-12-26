@@ -2,6 +2,7 @@ package quic
 
 import (
 	"sync"
+	"fmt"
 
 	"github.com/lucas-clemente/quic-go/internal/flowcontrol"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
@@ -45,22 +46,27 @@ func (q *windowUpdateQueue) AddConnection() {
 }
 
 func (q *windowUpdateQueue) QueueAll() {
+	fmt.Println("queueAll called")
 	q.mutex.Lock()
 	// queue a connection-level window update
 	if q.queuedConn {
 		q.callback(&wire.MaxDataFrame{ByteOffset: q.connFlowController.GetWindowUpdate()})
 		q.queuedConn = false
 	}
+	fmt.Println("q.queue: ", q.queue)
 	// queue all stream-level window updates
 	for id := range q.queue {
 		str, err := q.streamGetter.GetOrOpenReceiveStream(id)
+		fmt.Println("queued MaxStreamDataFrame a")
 		if err != nil || str == nil { // the stream can be nil if it was completed before dequeing the window update
 			continue
 		}
 		offset := str.getWindowUpdate()
+		fmt.Println("queued MaxStreamDataFrame b")
 		if offset == 0 { // can happen if we received a final offset, right after queueing the window update
 			continue
 		}
+		fmt.Println("queued MaxStreamDataFrame c")
 		q.callback(&wire.MaxStreamDataFrame{
 			StreamID:   id,
 			ByteOffset: offset,

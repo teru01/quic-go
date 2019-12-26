@@ -2,7 +2,6 @@ package quic
 
 import (
 	"errors"
-	"sync"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/utils"
@@ -26,6 +25,7 @@ func newFrameSorter() *frameSorter {
 	s := frameSorter{
 		gaps:  utils.NewByteIntervalList(),
 		queue: make(map[protocol.ByteCount]frameSorterEntry),
+		maxOffset: protocol.MaxByteCount,
 	}
 	s.gaps.PushFront(utils.ByteInterval{Start: 0, End: protocol.MaxByteCount})
 	return &s
@@ -186,6 +186,7 @@ func (s *frameSorter) ForcePop() (protocol.ByteCount, []byte, func(), bool /* tr
 	offset := s.readPos
 
 	for ; ; s.readPos++ {
+		// fmt.Println("VIDEO: forcepop: ", s.readPos)
 		_, ok := s.queue[s.readPos]
 		if ok {
 			break
@@ -206,10 +207,7 @@ func (s *frameSorter) ForcePop() (protocol.ByteCount, []byte, func(), bool /* tr
 	}
 
 	entry := s.queue[s.readPos]
-	var m sync.Mutex
-	m.Lock()
 	delete(s.queue, s.readPos)
-	m.Unlock()
 	s.readPos += protocol.ByteCount(len(entry.Data))
 	return offset, entry.Data, entry.DoneCb, false
 }
