@@ -415,12 +415,16 @@ func (s *receiveStream) dequeueNextFrame() {
 	fmt.Printf("%v %v %v\n", offset, protocol.ByteCount(len(s.currentFrame)), s.finalOffset)
 	fmt.Println("islast: ", s.currentFrameIsLast)
 	s.readPosInFrame = 0
-	if s.currentFrame == nil {
-		s.frameNilCount++
-		if s.frameNilCount > 4 {
-			s.signalEnableForceDequeue()
-			s.frameNilCount = 0
-		}
+	// if s.currentFrame == nil {
+	// 	s.frameNilCount++
+	// 	if s.frameNilCount > 4 {
+	// 		s.signalEnableForceDequeue()
+	// 		s.frameNilCount = 0
+	// 	}
+	// }
+	select {
+	case <-s.enableForceDequeue:
+	default:
 	}
 }
 
@@ -515,6 +519,11 @@ func (s *receiveStream) handleStreamFrameImpl(frame wire.StreamFrameInterface) (
 		return false, err
 	}
 
+	_, unreliable := frame.(*wire.UnreliableStreamFrame)
+	if unreliable && frame.GetOffset() > s.readOffset {
+		fmt.Println("frame.GetOffset() > s.readOffset")
+		s.signalEnableForceDequeue()
+	}
 	if s.StreamID() == 0 { // VIDEO: client initiated bidi stream
 		fmt.Printf("VIDEO: push frame: offset: %v length: %v\n", frame.GetOffset(), len(frame.GetData()))
 		if frame.GetFinBit() {
