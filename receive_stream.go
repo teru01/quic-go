@@ -148,11 +148,11 @@ func (s *receiveStream) unreliableReadImpl(p []byte, result *UnreliableReadResul
 	for bytesRead < len(p) {
 		if s.currentFrame == nil || s.readPosInFrame >= len(s.currentFrame) { // VIDEO: フレームを全てバッファにコピーできた
 			select {
-			// case <-s.finReadChan:
-			// 	s.mutex.Unlock()
-			// 	s.forceDequeNextFrame(result)
-			// 	s.signalFinRead()
-			// 	s.mutex.Lock()
+			case <-s.finReadChan:
+				s.mutex.Unlock()
+				s.forceDequeNextFrame(result)
+				s.signalFinRead()
+				s.mutex.Lock()
 			default:
 				s.dequeueNextFrame()
 			}
@@ -196,34 +196,50 @@ func (s *receiveStream) unreliableReadImpl(p []byte, result *UnreliableReadResul
 
 				select {
 				case <-s.enableForceDequeue:
-				case <-s.readChan:
-				case <-s.finReadChan:
-					// FINが読まれたのでdequeueしてロスレンジを計算 null byte padding
+
 					s.forceDequeNextFrame(result)
-					s.signalFinRead()
+				default:
+					select {
+					case <-s.readChan:
+
+					case <-s.finReadChan:
+						// FINが読まれたのでdequeueしてロスレンジを計算 null byte padding
+
+						s.forceDequeNextFrame(result)
+						s.signalFinRead()
+					}
 				}
 			} else {
-				// forceDequeできるなら必ずする
+
 				select {
-				case <-s.readChan:
+				// forceDequeできるなら必ずする
 				case <-s.enableForceDequeue:
-				case <-s.finReadChan:
-					// FINが読まれたのでdequeueしてロスレンジを計算 null byte padding
 					s.forceDequeNextFrame(result)
-					s.signalFinRead()
-				case <-deadlineTimer.Chan():
-					deadlineTimer.SetRead()
+				default:
+					select {
+					case <-s.readChan:
+					case <-s.finReadChan:
+						// FINが読まれたのでdequeueしてロスレンジを計算 null byte padding
+						s.forceDequeNextFrame(result)
+						s.signalFinRead()
+					case <-deadlineTimer.Chan():
+						deadlineTimer.SetRead()
+					}
 				}
 			}
 			s.mutex.Lock()
 			if s.currentFrame == nil {
+				s.mutex.Unlock()
 				select {
 				case <-s.finReadChan:
 					s.forceDequeNextFrame(result)
 					s.signalFinRead()
+					s.mutex.Lock()
 				case <-s.enableForceDequeue:
 					s.forceDequeNextFrame(result)
+					s.mutex.Lock()
 				default:
+					s.mutex.Lock()
 					s.dequeueNextFrame()
 				}
 			}
@@ -412,6 +428,8 @@ func (s *receiveStream) dequeueNextFrame() {
 
 // VIDEO 次のフレームが存在していなくてもnullbyteをpopする
 func (s *receiveStream) forceDequeNextFrame(result *UnreliableReadResult) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	var offset protocol.ByteCount
 	// We're done with the last frame. Release the buffer.
 	if s.currentFrameDone != nil {
