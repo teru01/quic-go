@@ -2,6 +2,8 @@ package http3
 
 import (
 	"bytes"
+	"time"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -63,6 +65,8 @@ func (w *responseWriter) WriteHeader(status int) {
 	}
 }
 
+var dur time.Duration
+
 func (w *responseWriter) Write(p []byte) (int, error) {
 	if !w.headerWritten {
 		w.WriteHeader(200)
@@ -79,15 +83,23 @@ func (w *responseWriter) Write(p []byte) (int, error) {
 		if _, err := w.stream.Write(buf.Bytes()); err != nil {
 			return 0, err
 		}
+		s1 := time.Now()
+		res, e := w.stream.Write(p)
+		dur += time.Since(s1)
+		fmt.Println("write time ", dur)
+		return res, e
 
-		return w.stream.Write(p)
 	} else {
 		// VIDEO: データフレームヘッダはreliable write
 		if _, err := w.stream.Write(buf.Bytes()); err != nil {
 			return 0, err
 		}
 		// VIDEO: データフレームbodyはunreliable write
-		return w.stream.UnreliableWrite(p)
+		s1 := time.Now()
+		res, e := w.stream.UnreliableWrite(p)
+		dur += time.Since(s1)
+		fmt.Println("unrel write time ", dur)
+		return res, e
 	}
 }
 
