@@ -56,6 +56,10 @@ type receiveStream struct {
 
 	dataPayloadOffset protocol.ByteCount
 	frameNilCount     int
+	expectedOffset    protocol.ByteCount
+	gapMap            map[protocol.ByteCount]struct{}
+	myTimer	time.Duration
+	myRTimer time.Duration
 }
 
 var _ ReceiveStream = &receiveStream{}
@@ -77,6 +81,7 @@ func newReceiveStream(
 		enableForceDequeue: make(chan struct{}, 1),
 		finalOffset:        protocol.MaxByteCount,
 		version:            version,
+		gapMap:             make(map[protocol.ByteCount]struct{}),
 	}
 }
 
@@ -147,17 +152,13 @@ func (s *receiveStream) unreliableReadImpl(p []byte, result *UnreliableReadResul
 	bytesRead := 0
 	for bytesRead < len(p) {
 		if s.currentFrame == nil || s.readPosInFrame >= len(s.currentFrame) { // VIDEO: フレームを全てバッファにコピーできた
-			select {
-			// case <-s.finReadChan:
-			// 	s.mutex.Unlock()
+			// if _, ok := s.gapMap[s.frameQueue.readPos]; ok {
 			// 	s.forceDequeNextFrame(result)
-			// 	s.signalFinRead()
-			// 	s.mutex.Lock()
-			default:
-				s.dequeueNextFrame()
-			}
+			// } else {
+			// }
+			s.dequeueNextFrame()
 		}
-		if s.currentFrame == nil && bytesRead > 0 {
+		if s.currentFrame == nil && bytesRead > 0 { // VIDEO なるべくここに入るのは減らす
 			result.N = bytesRead
 			fmt.Println("VIDEO: unreliable closeForShutdownErr")
 			return false, result, s.closeForShutdownErr //VIDEO TODO fix
@@ -192,12 +193,13 @@ func (s *receiveStream) unreliableReadImpl(p []byte, result *UnreliableReadResul
 				break
 			}
 			s.mutex.Unlock()
+			t1 := time.Now()
 			if deadline.IsZero() {
 				fmt.Println("VIDEO: unreliableReadImpl: deadline zero") // 次のオフセットにフレームがセットされるのを待つ
 				select {
 				case <-s.enableForceDequeue:
-				case <-s.readChan:
-					fmt.Println("VIDEO: unreliableReadImpl: s<-readChan")
+				// case <-s.readChan: VIDEO: フレームがpushされた分だけpopされるわけではないので適さない
+				// 	fmt.Println("VIDEO: unreliableReadImpl: s<-readChan")
 				case <-s.finReadChan:
 					// FINが読まれたのでdequeueしてロスレンジを計算 null byte padding
 					fmt.Println("s.finReadChan")
@@ -208,7 +210,6 @@ func (s *receiveStream) unreliableReadImpl(p []byte, result *UnreliableReadResul
 				fmt.Println("VIDEO: unreliableReadImpl: deadline non zero")
 				// forceDequeできるなら必ずする
 				select {
-				case <-s.readChan:
 				case <-s.enableForceDequeue:
 				case <-s.finReadChan:
 					// FINが読まれたのでdequeueしてロスレンジを計算 null byte padding
@@ -218,17 +219,18 @@ func (s *receiveStream) unreliableReadImpl(p []byte, result *UnreliableReadResul
 					deadlineTimer.SetRead()
 				}
 			}
+			s.myTimer += time.Since(t1)
 			s.mutex.Lock()
 			if s.currentFrame == nil {
-				select {
-				case <-s.finReadChan:
-					s.forceDequeNextFrame(result)
-					s.signalFinRead()
-				case <-s.enableForceDequeue:
-					s.forceDequeNextFrame(result)
-				default:
-					s.dequeueNextFrame()
-				}
+				s.forceDequeNextFrame(result)
+				// select {
+				// case <-s.finReadChan:
+				// 	s.forceDequeNextFrame(result)
+				// 	s.signalFinRead()
+				// case <-s.enableForceDequeue:
+				// default:
+				// 	s.dequeueNextFrame()
+				// }
 			}
 		}
 
@@ -330,9 +332,13 @@ func (s *receiveStream) readImpl(p []byte) (bool /*stream completed */, int, err
 			}
 
 			s.mutex.Unlock()
+			t1 := time.Now()
 			if deadline.IsZero() {
 				fmt.Println("deadline zero") // 次のオフセットにフレームがセットされるのを待つ
-				<-s.readChan
+				select {
+				case <-s.readChan:
+				case <-s.finReadChan:
+				}
 			} else {
 				fmt.Println("deadline non zero")
 				select {
@@ -341,6 +347,7 @@ func (s *receiveStream) readImpl(p []byte) (bool /*stream completed */, int, err
 					deadlineTimer.SetRead()
 				}
 			}
+			s.myRTimer += time.Since(t1)
 			s.mutex.Lock()
 			if s.currentFrame == nil {
 				s.dequeueNextFrame()
@@ -401,6 +408,10 @@ func (s *receiveStream) dequeueNextFrame() {
 
 	fmt.Printf("%v %v %v\n", offset, protocol.ByteCount(len(s.currentFrame)), s.finalOffset)
 	fmt.Println("islast: ", s.currentFrameIsLast)
+	if s.currentFrameIsLast {
+		fmt.Println("****************************************************************************timer: ", s.myTimer)
+		fmt.Println("****************************************************************************timer: ", s.myRTimer)
+	}
 	s.readPosInFrame = 0
 	// if s.currentFrame == nil {
 	// 	s.frameNilCount++
@@ -495,6 +506,7 @@ func (s *receiveStream) handleStreamFrameImpl(frame wire.StreamFrameInterface) (
 		fmt.Println("VIDEO: get fin bit max offset: ", maxOffset) // これが最初に呼ばれるのが原因
 		s.finalOffset = maxOffset
 		s.frameQueue.setMaxOffset(frame.GetOffset())
+
 	}
 	if s.canceledRead {
 		return newlyRcvdFinalOffset, nil
@@ -503,19 +515,28 @@ func (s *receiveStream) handleStreamFrameImpl(frame wire.StreamFrameInterface) (
 	if err != nil {
 		return false, err
 	}
-
 	_, unreliable := frame.(*wire.UnreliableStreamFrame)
-	if unreliable && frame.GetOffset() > s.readOffset {
-		fmt.Println("frame.GetOffset() > s.readOffset")
+
+	if unreliable && (frame.GetOffset() >= s.expectedOffset) {
+		if frame.GetOffset() > s.expectedOffset {
+			fmt.Println("VIDEO: exceed expectedOffset")
+		}
+		// s.gapMap[s.expectedOffset] = struct{}{}
 		s.signalEnableForceDequeue()
+	} else {
+		s.signalRead()
 	}
+	s.expectedOffset = frame.GetOffset() + frame.GetDataLen()
+
+	// if unreliable && frame.GetOffset() > s.readOffset {
+	// 	fmt.Println("frame.GetOffset() > s.readOffset")
+	// }
 	if s.StreamID() == 0 { // VIDEO: client initiated bidi stream
 		fmt.Printf("VIDEO: push frame: offset: %v length: %v\n", frame.GetOffset(), len(frame.GetData()))
 		if frame.GetFinBit() {
 			fmt.Println("VIDEO: FIN offset: ", frame.GetOffset())
 		}
 	}
-	s.signalRead()
 	return false, nil
 }
 
