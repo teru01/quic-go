@@ -20,6 +20,7 @@ const (
 func ReadVarInt(b io.ByteReader) (uint64, error) {
 	firstByte, err := b.ReadByte()
 	if err != nil {
+		fmt.Println(err)
 		return 0, err
 	}
 	// the first two bits of the first byte encode the length
