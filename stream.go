@@ -4,7 +4,6 @@ import (
 	"net"
 	"sync"
 	"time"
-	"fmt"
 
 	"github.com/lucas-clemente/quic-go/internal/ackhandler"
 	"github.com/lucas-clemente/quic-go/internal/flowcontrol"
@@ -159,6 +158,6 @@ func (s *stream) handleResetStreamFrame(frame *wire.ResetStreamFrame) error {
 func (s *stream) checkIfCompleted() {
 	if s.sendStreamCompleted && s.receiveStreamCompleted {
 		s.sender.onStreamCompleted(s.StreamID())
-		fmt.Println("sender stream completed")
+		
 	}
 }

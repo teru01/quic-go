@@ -2,7 +2,6 @@ package quic
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/utils"
@@ -44,7 +43,7 @@ func (s *frameSorter) Push(data []byte, offset protocol.ByteCount, doneCb func()
 }
 
 func (s *frameSorter) setMaxOffset(m protocol.ByteCount) {
-	fmt.Println("setMaxOffset: ", m)
+	
 	s.maxOffset = m
 }
 
@@ -187,20 +186,20 @@ func (s *frameSorter) ForcePop() (protocol.ByteCount, []byte, func(), bool /* tr
 	var lossByte protocol.ByteCount
 	offset := s.readPos
 
-	fmt.Println("VIDEO: force poping..")
+	
 	for ; ; s.readPos++ {
-		// fmt.Println("VIDEO: forcepop: ", s.readPos)
+		// 
 		_, ok := s.queue[s.readPos]
 		if ok {
 			break
 		}
 		if s.readPos >= s.maxOffset {
-			fmt.Println("VIDEO: readpos exceed", s.readPos)
+			
 			break
 		}
 		lossByte++
 	}
-	fmt.Println("VIDEO: find fragment: readPos: ", s.readPos)
+	
 	if lossByte > 0 {
 		padding := make([]byte, lossByte)
 		for i := 0; i < int(lossByte); i++ {

@@ -211,7 +211,7 @@ func (s *Server) maxHeaderBytes() uint64 {
 
 func (s *Server) handleRequest(str quic.Stream, decoder *qpack.Decoder, onFrameError func()) requestError {
 	frame, err := parseNextFrame(str)
-	fmt.Println("handle reqest")
+	
 	if err != nil {
 		return newStreamError(errorRequestIncomplete, err)
 	}
@@ -223,7 +223,7 @@ func (s *Server) handleRequest(str quic.Stream, decoder *qpack.Decoder, onFrameE
 		return newStreamError(errorFrameError, fmt.Errorf("HEADERS frame too large: %d bytes (max: %d)", hf.Length, s.maxHeaderBytes()))
 	}
 	headerBlock := make([]byte, hf.Length)
-	fmt.Println("VIDEO: hf: ", hf.Length)
+	
 	if _, err := io.ReadFull(str, headerBlock); err != nil {
 		return newStreamError(errorRequestIncomplete, err)
 	}

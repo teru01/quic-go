@@ -243,21 +243,20 @@ func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Fr
 	}
 
 	stFrame := f.(wire.StreamFrameInterface) // 必ず成功
-	_, unreliable := stFrame.(*wire.UnreliableStreamFrame)
 
-	fmt.Printf("VIDEO: send_stream.go: currentDataUnreliable: %v len: %v\n", unreliable, stFrame.GetDataLen())
+	
 
 	// FINbitじゃないUnreliableFrame
 	if <-s.unreliableChan && !f.GetFinBit() {
 		// 再送を行わない
-		fmt.Printf("VIDEO: send_stream.go: unreliably send")
+		
 		return &ackhandler.Frame{Frame: f, OnLost: func(f wire.Frame) {}, OnAcked: func(f wire.Frame) {}}, hasMoreData
 	}
 	if stFrame.GetFinBit() {
-		fmt.Println("VIDEO: send_stream.go: send fin reliably")
+		
 	}
 	s.unreliableMustAckedNum++ // 必ずACKされないといけないフレーム数
-	fmt.Printf("VIDEO: send_stream.go: reliably send")
+	
 	return &ackhandler.Frame{Frame: f, OnLost: s.queueRetransmission, OnAcked: s.frameAcked}, hasMoreData
 }
 
@@ -338,7 +337,7 @@ func (s *sendStream) popNewStreamFrame(f *wire.StreamFrame, maxBytes protocol.By
 
 func (s *sendStream) maybeGetRetransmission(maxBytes protocol.ByteCount) (wire.StreamFrameInterface, bool /* has more retransmissions */) {
 	f := s.retransmissionQueue[0]
-	fmt.Println("VIDEO: retransmission len: ", f.DataLen())
+	
 	newFrame, needsSplit := f.MaybeSplitOffFrame(maxBytes, s.version)
 	if needsSplit {
 		return newFrame, true
@@ -416,7 +415,7 @@ func (s *sendStream) isNewlyCompleted() bool {
 	completed = (s.finSent || s.canceledWrite) && s.unreliableMustAckedNum == 0 && len(s.retransmissionQueue) == 0 //ackを受け取った時にfinsentを送信した後
 	// if s.unreliable {
 	// 	if completed {
-	// 		fmt.Println("VIDEO: send_stream.go: unreliable stream received ack of fin frame")
+	// 		
 	// 	}
 	// } else {
 	// 	completed = (s.finSent || s.canceledWrite) && s.numOutstandingFrames == 0 && len(s.retransmissionQueue) == 0
@@ -431,13 +430,13 @@ func (s *sendStream) isNewlyCompleted() bool {
 func (s *sendStream) queueRetransmission(f wire.Frame) {
 	// stFrame, ok := f.(wire.StreamFrameInterface)
 	// if s.unreliable &&
-	// fmt.Println("unreliable retransmission queueing")
+	// 
 
 	switch sf := f.(type) {
 	case *wire.StreamFrame:
 		sf.DataLenPresent = true
 		s.mutex.Lock()
-		// fmt.Printf("add STREAM FRAME to retransmission queue id: %v\n", s.StreamID())
+		// 
 		s.retransmissionQueue = append(s.retransmissionQueue, sf)
 		s.numOutstandingFrames--
 		s.unreliableMustAckedNum--
@@ -448,12 +447,12 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 
 		s.sender.onHasStreamData(s.streamID)
 		if sf.FinBit {
-			fmt.Println("VIDEO: retransmit FIN STREAM")
+			
 		}
 	case *wire.UnreliableStreamFrame:
 		sf.DataLenPresent = true
 		s.mutex.Lock()
-		// fmt.Printf("add STREAM FRAME to retransmission queue id: %v\n", s.StreamID())
+		// 
 		s.retransmissionQueue = append(s.retransmissionQueue, sf)
 		s.numOutstandingFrames--
 		if s.numOutstandingFrames < 0 || s.unreliableMustAckedNum < 0 {
@@ -463,7 +462,7 @@ func (s *sendStream) queueRetransmission(f wire.Frame) {
 
 		s.sender.onHasStreamData(s.streamID)
 		if sf.FinBit {
-			fmt.Println("VIDEO: retransmit FIN STREAM")
+			
 		}
 	}
 }

@@ -564,7 +564,7 @@ func (p *packetPacker) writeAndSealPacketWithPadding(
 	}
 
 	if payloadSize := protocol.ByteCount(buffer.Len()-payloadOffset) - paddingLen; payloadSize != payload.length {
-		fmt.Printf("%#v\n", payload)
+		
 		return nil, fmt.Errorf("PacketPacker BUG: payload size inconsistent (expected %d, got %d bytes)", payload.length, payloadSize)
 	}
 	if size := protocol.ByteCount(buffer.Len() + sealer.Overhead()); size > p.maxPacketSize {
