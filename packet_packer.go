@@ -237,6 +237,7 @@ func (p *packetPacker) MaybePackAckPacket() (*packedPacket, error) {
 		}
 	}
 	if ack == nil {
+		// fmt.Println("ack_frame")
 		ack = p.acks.GetAckFrame(protocol.Encryption1RTT)
 		if ack == nil {
 			return nil, nil
@@ -403,7 +404,7 @@ func (p *packetPacker) maybePackAppDataPacket() (*packedPacket, error) {
 
 func (p *packetPacker) composeNextPacket(maxFrameSize protocol.ByteCount) payload {
 	var payload payload
-
+	fmt.Println("GetAckFrame")
 	if ack := p.acks.GetAckFrame(protocol.Encryption1RTT); ack != nil {
 		payload.ack = ack
 		payload.length += ack.Length(p.version)

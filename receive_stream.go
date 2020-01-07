@@ -59,6 +59,7 @@ type receiveStream struct {
 	expectedOffset    protocol.ByteCount
 	gapMap            map[protocol.ByteCount]struct{}
 	myTimer	time.Duration
+	myLockTimer time.Duration
 	myRTimer time.Duration
 }
 
@@ -411,6 +412,7 @@ func (s *receiveStream) dequeueNextFrame() {
 	if s.currentFrameIsLast {
 		fmt.Println("****************************************************************************timer: ", s.myTimer)
 		fmt.Println("****************************************************************************timer: ", s.myRTimer)
+		fmt.Println("****************************************************************************timer: ", s.myLockTimer)
 	}
 	s.readPosInFrame = 0
 	// if s.currentFrame == nil {
@@ -450,6 +452,11 @@ func (s *receiveStream) forceDequeNextFrame(result *UnreliableReadResult) {
 
 	fmt.Printf("%v %v %v\n", offset, protocol.ByteCount(len(s.currentFrame)), s.finalOffset)
 	fmt.Println("islast: ", s.currentFrameIsLast)
+	if s.currentFrameIsLast {
+		fmt.Println("****************************************************************************timer: ", s.myTimer)
+		fmt.Println("****************************************************************************timer: ", s.myRTimer)
+		fmt.Println("****************************************************************************Lock timer: ", s.myLockTimer)
+	}
 	s.readPosInFrame = 0
 }
 
@@ -481,7 +488,9 @@ func (s *receiveStream) cancelReadImpl(errorCode protocol.ApplicationErrorCode) 
 
 func (s *receiveStream) handleStreamFrame(frame wire.StreamFrameInterface) error {
 	fmt.Println("handle Stream Frame begin")
+	t := time.Now()
 	s.mutex.Lock()
+	s.myLockTimer += time.Since(t)
 	completed, err := s.handleStreamFrameImpl(frame)
 	s.mutex.Unlock()
 

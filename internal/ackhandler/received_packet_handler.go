@@ -110,6 +110,7 @@ func (h *receivedPacketHandler) GetAckFrame(encLevel protocol.EncryptionLevel) *
 			ack = h.handshakePackets.GetAckFrame()
 		}
 	case protocol.Encryption1RTT:
+		fmt.Println("Encryption1RTT")
 		return h.oneRTTPackets.GetAckFrame()
 	default:
 		return nil

@@ -203,9 +203,6 @@ func (s *frameSorter) ForcePop() (protocol.ByteCount, []byte, func(), bool /* tr
 	fmt.Println("VIDEO: find fragment: readPos: ", s.readPos)
 	if lossByte > 0 {
 		padding := make([]byte, lossByte)
-		for i := 0; i < int(lossByte); i++ {
-			padding[i] = 0
-		}
 		return offset, padding, nil, true
 	}
 
